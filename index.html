@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f8">
+<title>Invoice</title>
+<style>
+:root{
+  --bg:#f4f6f8; --card:#fff; --ink:#15171b; --muted:#69707c;
+  --line:#e4e7eb; --accent:#111827; --accent2:#eef1f5;
+  --green:#16784a; --green-bg:#eaf7ef; --red:#a52a2a; --red-bg:#fdecec;
+  --blue:#3157b7; --blue-bg:#edf2ff; --amber:#8b6100; --amber-bg:#fff5d9;
+  --shadow:0 8px 30px rgba(0,0,0,.045);
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{
+  margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.app{
+  width:min(100%,820px);margin:auto;
+  padding:calc(env(safe-area-inset-top) + 10px) 14px calc(92px + env(safe-area-inset-bottom));
+}
+header{
+  position:sticky;top:0;z-index:20;padding:8px 2px 13px;
+  background:linear-gradient(var(--bg) 82%,rgba(244,246,248,0));
+}
+.kicker{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:30px;letter-spacing:-.045em;margin:3px 0 1px}
+.sub{color:var(--muted);font-size:14px;line-height:1.4}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:19px;
+  box-shadow:var(--shadow);padding:16px;margin:12px 0;
+}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.stat{min-height:93px}
+.stat .label{color:var(--muted);font-size:12px;font-weight:750}
+.stat .value{font-weight:900;font-size:24px;margin-top:7px;letter-spacing:-.035em}
+button{
+  border:0;border-radius:13px;padding:12px 14px;font-weight:800;font-size:15px;
+}
+.primary{background:var(--accent);color:#fff}
+.secondary{background:var(--accent2);color:var(--ink)}
+.danger{background:var(--red-bg);color:var(--red)}
+.full{width:100%}
+.big{padding:15px;font-size:17px}
+label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin:13px 0 6px}
+input,textarea,select{
+  width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);
+  padding:12px;font-size:16px;outline:none;
+}
+input:focus,textarea:focus,select:focus{border-color:#9aa3b2;box-shadow:0 0 0 3px rgba(17,24,39,.06)}
+textarea{min-height:76px;resize:vertical}
+.row{display:flex;gap:9px}
+.row>*{flex:1}
+.hidden{display:none!important}
+.list{display:grid;gap:9px}
+.entry{
+  display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
+  background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px;
+}
+.entry button{background:transparent;padding:0;text-align:left;color:inherit;width:100%}
+.title{font-weight:900;line-height:1.2}
+.meta{font-size:13px;color:var(--muted);line-height:1.45;margin-top:4px}
+.money{font-size:18px;font-weight:900;white-space:nowrap}
+.badge{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:900;margin-top:6px}
+.badge-draft{background:#f0f1f3;color:#626874}
+.badge-sent{background:var(--blue-bg);color:var(--blue)}
+.badge-viewed{background:#eeeaff;color:#5a3ea9}
+.badge-paid{background:var(--green-bg);color:var(--green)}
+.badge-overdue{background:var(--red-bg);color:var(--red)}
+.badge-partial{background:var(--amber-bg);color:var(--amber)}
+.toolbar{display:flex;gap:8px;overflow:auto;padding-bottom:5px}
+.chip{white-space:nowrap;background:#fff;border:1px solid var(--line);padding:9px 12px;border-radius:999px}
+.chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bottom{
+  position:fixed;z-index:50;left:0;right:0;bottom:0;background:rgba(255,255,255,.94);
+  border-top:1px solid var(--line);backdrop-filter:blur(18px);
+  padding:9px 10px calc(9px + env(safe-area-inset-bottom));
+}
+.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.bottom button{background:transparent;color:var(--muted);padding:10px 5px;font-size:13px}
+.bottom button.active{background:var(--ink);color:#fff}
+.item-row{
+  display:grid;grid-template-columns:minmax(0,1fr) 72px 96px 42px;gap:7px;align-items:end;
+  padding-top:10px;
+}
+.item-row .remove{background:#f3f4f6;padding:11px 6px}
+.total{
+  display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);
+  margin-top:15px;padding-top:14px;
+}
+.total strong{font-size:28px}
+.suggestions{display:flex;gap:7px;overflow:auto;padding:7px 0 2px}
+.suggestions button{white-space:nowrap;background:#f1f3f6;padding:8px 10px;font-size:13px}
+.section-title{font-size:19px;font-weight:900;letter-spacing:-.025em;margin:18px 2px 8px}
+.timeline{display:grid;gap:10px;margin-top:14px}
+.timeline-row{display:grid;grid-template-columns:18px 1fr;gap:9px;align-items:start}
+.dot{width:12px;height:12px;border-radius:50%;background:#c9ced6;margin-top:4px}
+.dot.on{background:var(--green)}
+.timeline-row .event{font-weight:850}
+.timeline-row .when{font-size:13px;color:var(--muted);margin-top:2px}
+.empty{text-align:center;color:var(--muted);padding:25px 8px}
+.notice{font-size:13px;color:var(--muted);line-height:1.45;background:#f7f8fa;border-radius:12px;padding:11px}
+.top-actions{display:flex;gap:8px}
+.top-actions>*{flex:1}
+.invoice-preview{font-family:Arial,Helvetica,sans-serif}
+.invoice-preview h2{font-size:33px;margin:0 0 12px}
+.invoice-preview .inv-line{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:12px 0}
+.search{margin-bottom:9px}
+@media(max-width:580px){
+  .grid3{grid-template-columns:1fr 1fr}.grid3 .stat:last-child{grid-column:1/-1}
+  .row{display:block}.row>*+*{margin-top:8px}
+  h1{font-size:28px}.item-row{grid-template-columns:minmax(0,1fr) 65px 86px 39px}
+  .item-row label{font-size:10px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="kicker">Invoice</div>
+  <h1 id="pageTitle">Invoices</h1>
+  <div class="sub" id="pageSub">Create, send, and see who still owes you.</div>
+</header>
+
+<section id="homePage">
+  <button class="primary big full" onclick="openNewInvoice()">+ New invoice</button>
+
+  <div class="grid3">
+    <div class="card stat"><div class="label">Overdue</div><div class="value" id="statOverdue">$0</div></div>
+    <div class="card stat"><div class="label">Awaiting payment</div><div class="value" id="statOutstanding">$0</div></div>
+    <div class="card stat"><div class="label">Paid this month</div><div class="value" id="statPaidMonth">$0</div></div>
+  </div>
+
+  <div class="toolbar" id="filterBar">
+    <button class="chip active" data-filter="all" onclick="setFilter('all',this)">All</button>
+    <button class="chip" data-filter="sent" onclick="setFilter('sent',this)">Sent</button>
+    <button class="chip" data-filter="viewed" onclick="setFilter('viewed',this)">Viewed</button>
+    <button class="chip" data-filter="overdue" onclick="setFilter('overdue',this)">Overdue</button>
+    <button class="chip" data-filter="paid" onclick="setFilter('paid',this)">Paid</button>
+    <button class="chip" data-filter="draft" onclick="setFilter('draft',this)">Drafts</button>
+  </div>
+
+  <div id="invoiceList" class="list"></div>
+</section>
+
+<section id="newInvoicePage" class="hidden">
+  <div class="card">
+    <label>Who is paying you?</label>
+    <input id="clientName" list="clientNames" placeholder="Client or company">
+    <datalist id="clientNames"></datalist>
+
+    <label>Email</label>
+    <input id="clientEmail" type="email" list="clientEmails" placeholder="billing@company.com">
+    <datalist id="clientEmails"></datalist>
+
+    <div class="top-actions" style="margin-top:10px">
+      <button class="secondary" onclick="showPage('clients')">Choose saved client</button>
+      <label class="secondary" style="margin:0;text-align:center;padding:12px 10px;border-radius:13px;color:var(--ink);font-size:15px">
+        Import contact
+        <input id="vcardInput" type="file" accept=".vcf,text/vcard" style="display:none" onchange="importVCard(event)">
+      </label>
+    </div>
+
+    <div class="row">
+      <div><label>Invoice date</label><input id="invoiceDate" type="date"></div>
+      <div><label>Payment terms</label>
+        <select id="paymentTerms">
+          <option value="0">Due on receipt</option>
+          <option value="7">Net 7</option>
+          <option value="15">Net 15</option>
+          <option value="30" selected>Net 30</option>
+          <option value="45">Net 45</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Saved services or products</label>
+    <div id="itemSuggestions" class="suggestions"></div>
+
+    <div id="invoiceItems"></div>
+    <button class="secondary" style="margin-top:12px" onclick="addItemRow()">+ Add line</button>
+
+    <label>Notes</label>
+    <textarea id="invoiceNotes" placeholder="PO number, production name, payment instructions, or thank-you note"></textarea>
+
+    <div class="total">
+      <div>
+        <div class="meta">Invoice total</div>
+        <div class="notice">This is not counted as paid until you mark it paid or match a payment later.</div>
+      </div>
+      <strong id="invoiceTotal">$0.00</strong>
+    </div>
+  </div>
+
+  <div class="row">
+    <button class="secondary big full" onclick="saveInvoice('draft')">Save draft</button>
+    <button class="primary big full" onclick="previewInvoice()">Preview</button>
+  </div>
+</section>
+
+<section id="previewPage" class="hidden">
+  <div class="card invoice-preview" id="previewCard"></div>
+  <div class="row">
+    <button class="secondary big full" onclick="showPage('new')">Edit</button>
+    <button class="primary big full" onclick="sendInvoice()">Send invoice</button>
+  </div>
+</section>
+
+<section id="detailPage" class="hidden">
+  <div id="detailCard" class="card"></div>
+  <div class="row">
+    <button class="secondary big full" onclick="sendCurrentInvoice()">Send / resend</button>
+    <button class="primary big full" onclick="markPaid()">Mark paid</button>
+  </div>
+  <div class="row">
+    <button class="secondary big full" onclick="markViewed()">Mark viewed (test)</button>
+    <button class="danger big full" onclick="deleteCurrentInvoice()">Delete</button>
+  </div>
+</section>
+
+<section id="clientsPage" class="hidden">
+  <input class="search" id="clientSearch" placeholder="Search clients" oninput="renderClients()">
+  <div class="card notice">Clients are created automatically from invoices. Importing a vCard fills name and email, but direct iPhone Contacts access requires the future native app.</div>
+  <div id="clientList" class="list"></div>
+</section>
+
+<section id="itemsPage" class="hidden">
+  <input class="search" id="itemSearch" placeholder="Search services or products" oninput="renderItems()">
+  <button class="primary full" onclick="openNewItem()">+ New service or product</button>
+  <div id="itemEditor" class="card hidden">
+    <label>Name</label><input id="editItemName" placeholder="Example: Steadicam operator">
+    <label>Default rate</label><input id="editItemRate" type="number" min="0" step="0.01">
+    <button class="primary full" style="margin-top:12px" onclick="saveNewItem()">Save</button>
+  </div>
+  <div id="savedItemList" class="list" style="margin-top:10px"></div>
+</section>
+
+<section id="clientDetailPage" class="hidden">
+  <div id="clientDetailCard" class="card"></div>
+  <div class="section-title">Invoices</div>
+  <div id="clientInvoiceList" class="list"></div>
+</section>
+</div>
+
+<nav class="bottom">
+  <div class="nav">
+    <button id="navInvoices" class="active" onclick="showPage('home')">Invoices</button>
+    <button onclick="openNewInvoice()">New</button>
+    <button id="navClients" onclick="showPage('clients')">Clients</button>
+    <button id="navItems" onclick="showPage('items')">Items</button>
+  </div>
+</nav>
+
+<script>
+const $ = id => document.getElementById(id);
+const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n||0));
+const esc = s => String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const today = () => new Date().toISOString().slice(0,10);
+const uid = () => crypto?.randomUUID?.() || String(Date.now())+Math.random();
+
+let invoices = JSON.parse(localStorage.getItem('invoiceApp.invoices')||'[]');
+let clients = JSON.parse(localStorage.getItem('invoiceApp.clients')||'[]');
+let items = JSON.parse(localStorage.getItem('invoiceApp.items')||'[]');
+let currentInvoiceId = null;
+let currentClientId = null;
+let filter = 'all';
+
+if(!items.length){
+  items=[
+    {id:uid(),name:'Service day',rate:0,useCount:0},
+    {id:uid(),name:'Equipment rental',rate:0,useCount:0},
+    {id:uid(),name:'Mileage',rate:0,useCount:0}
+  ];
+  persist();
+}
+
+function persist(){
+  localStorage.setItem('invoiceApp.invoices',JSON.stringify(invoices));
+  localStorage.setItem('invoiceApp.clients',JSON.stringify(clients));
+  localStorage.setItem('invoiceApp.items',JSON.stringify(items));
+}
+function hidePages(){
+  ['homePage','newInvoicePage','previewPage','detailPage','clientsPage','itemsPage','clientDetailPage']
+    .forEach(id=>$(id).classList.add('hidden'));
+}
+function resetNav(){
+  ['navInvoices','navClients','navItems'].forEach(id=>$(id).classList.remove('active'));
+}
+function showPage(name){
+  hidePages(); resetNav();
+  if(name==='home'){
+    $('homePage').classList.remove('hidden'); $('navInvoices').classList.add('active');
+    $('pageTitle').textContent='Invoices'; $('pageSub').textContent='Create, send, and see who still owes you.';
+    renderHome();
+  } else if(name==='new'){
+    $('newInvoicePage').classList.remove('hidden');
+    $('pageTitle').textContent='New invoice'; $('pageSub').textContent='Who, what, and how much.';
+  } else if(name==='preview'){
+    $('previewPage').classList.remove('hidden');
+    $('pageTitle').textContent='Preview'; $('pageSub').textContent='Check it before sending.';
+  } else if(name==='detail'){
+    $('detailPage').classList.remove('hidden');
+  } else if(name==='clients'){
+    $('clientsPage').classList.remove('hidden'); $('navClients').classList.add('active');
+    $('pageTitle').textContent='Clients'; $('pageSub').textContent='Everyone you invoice, automatically organized.';
+    renderClients();
+  } else if(name==='items'){
+    $('itemsPage').classList.remove('hidden'); $('navItems').classList.add('active');
+    $('pageTitle').textContent='Items'; $('pageSub').textContent='Reusable services and products.';
+    renderItems();
+  } else if(name==='clientDetail'){
+    $('clientDetailPage').classList.remove('hidden'); $('navClients').classList.add('active');
+  }
+}
+
+function openNewInvoice(){
+  currentInvoiceId=null;
+  $('clientName').value=''; $('clientEmail').value=''; $('invoiceDate').value=today();
+  $('paymentTerms').value='30'; $('invoiceNotes').value='';
+  $('invoiceItems').innerHTML='';
+  addItemRow();
+  refreshClientLists();
+  refreshItemSuggestions();
+  recalcInvoice();
+  showPage('new');
+}
+function addItemRow(prefill={}){
+  const row=document.createElement('div');
+  row.className='item-row';
+  row.innerHTML=`
+    <div><label>What did you do or sell?</label><input class="item-name" list="itemNames" value="${esc(prefill.name||'')}" placeholder="Service or product"></div>
+    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="0.25" value="${prefill.qty ?? 1}" oninput="recalcInvoice()"></div>
+    <div><label>Rate</label><input class="item-rate" type="number" min="0" step="0.01" value="${prefill.rate ?? ''}" oninput="recalcInvoice()"></div>
+    <button class="remove" onclick="this.parentElement.remove();recalcInvoice()">×</button>`;
+  const nameInput=row.querySelector('.item-name');
+  nameInput.addEventListener('change',()=>{
+    const match=items.find(x=>x.name.toLowerCase()===nameInput.value.trim().toLowerCase());
+    if(match) row.querySelector('.item-rate').value=match.rate||'';
+    recalcInvoice();
+  });
+  $('invoiceItems').appendChild(row);
+}
+function readInvoiceItems(){
+  return [...document.querySelectorAll('.item-row')].map(row=>({
+    name:row.querySelector('.item-name').value.trim(),
+    qty:Number(row.querySelector('.item-qty').value||0),
+    rate:Number(row.querySelector('.item-rate').value||0)
+  })).filter(x=>x.name && x.qty>0);
+}
+function recalcInvoice(){
+  const total=readInvoiceItems().reduce((sum,x)=>sum+x.qty*x.rate,0);
+  $('invoiceTotal').textContent=money(total);
+  return total;
+}
+function refreshClientLists(){
+  $('clientNames').innerHTML=clients.map(c=>`<option value="${esc(c.name)}"></option>`).join('');
+  $('clientEmails').innerHTML=clients.map(c=>`<option value="${esc(c.email||'')}"></option>`).join('');
+  $('clientName').onchange=()=>{
+    const match=clients.find(c=>c.name.toLowerCase()===$('clientName').value.trim().toLowerCase());
+    if(match && !$('clientEmail').value) $('clientEmail').value=match.email||'';
+  };
+}
+function refreshItemSuggestions(){
+  const popular=[...items].sort((a,b)=>(b.useCount||0)-(a.useCount||0)).slice(0,8);
+  $('itemSuggestions').innerHTML=popular.map(x=>`<button onclick='addSavedItem(${JSON.stringify(x.id)})'>${esc(x.name)}</button>`).join('');
+  let dl=$('itemNames');
+  if(!dl){dl=document.createElement('datalist');dl.id='itemNames';document.body.appendChild(dl)}
+  dl.innerHTML=items.map(x=>`<option value="${esc(x.name)}"></option>`).join('');
+}
+function addSavedItem(id){
+  const x=items.find(i=>i.id===id);
+  if(x)addItemRow({name:x.name,qty:1,rate:x.rate});
+}
+function upsertClient(name,email){
+  let client=clients.find(c=>c.name.toLowerCase()===name.toLowerCase() || (email && c.email?.toLowerCase()===email.toLowerCase()));
+  if(!client){client={id:uid(),name,email:email||'',createdAt:new Date().toISOString()};clients.push(client)}
+  else {client.name=name||client.name;if(email)client.email=email}
+  return client;
+}
+function learnItems(lines){
+  lines.forEach(line=>{
+    let item=items.find(i=>i.name.toLowerCase()===line.name.toLowerCase());
+    if(!item){item={id:uid(),name:line.name,rate:line.rate,useCount:1};items.push(item)}
+    else {item.rate=line.rate;item.useCount=(item.useCount||0)+1}
+  });
+}
+function validateInvoice(requireEmail=false){
+  const name=$('clientName').value.trim(),email=$('clientEmail').value.trim(),lines=readInvoiceItems();
+  if(!name){alert('Add the client name.');return null}
+  if(requireEmail&&!email){alert('Add the client email so the invoice knows where to go.');return null}
+  if(!lines.length){alert('Add at least one invoice line.');return null}
+  const total=lines.reduce((sum,x)=>sum+x.qty*x.rate,0);
+  if(total<=0){alert('The invoice total must be greater than zero.');return null}
+  return {name,email,lines,total};
+}
+function makeInvoiceData(status){
+  const v=validateInvoice(status==='sent');
+  if(!v)return null;
+  const client=upsertClient(v.name,v.email);
+  const number=String((Math.max(0,...invoices.map(i=>Number(i.number)||0))+1)).padStart(4,'0');
+  const date=$('invoiceDate').value||today();
+  const terms=Number($('paymentTerms').value||0);
+  const due=new Date(date+'T12:00:00'); due.setDate(due.getDate()+terms);
+  return {
+    id:uid(),number,clientId:client.id,clientName:v.name,clientEmail:v.email,
+    date,dueDate:due.toISOString().slice(0,10),terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
+    total:v.total,status,createdAt:new Date().toISOString(),
+    sentAt:status==='sent'?new Date().toISOString():null,viewedAt:null,paidAt:null,paidAmount:0
+  };
+}
+function saveInvoice(status){
+  const inv=makeInvoiceData(status); if(!inv)return null;
+  invoices.unshift(inv);learnItems(inv.lines);persist();currentInvoiceId=inv.id;return inv;
+}
+function previewInvoice(){
+  const v=validateInvoice(false); if(!v)return;
+  const date=$('invoiceDate').value||today();
+  const terms=Number($('paymentTerms').value||0);
+  const due=new Date(date+'T12:00:00');due.setDate(due.getDate()+terms);
+  $('previewCard').innerHTML=invoiceHTML({
+    number:'PREVIEW',clientName:v.name,clientEmail:v.email,date,dueDate:due.toISOString().slice(0,10),
+    lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
+  });
+  showPage('preview');
+}
+function sendInvoice(){
+  const inv=saveInvoice('sent');if(!inv)return;
+  openMail(inv);
+  openInvoiceDetail(inv.id);
+}
+function openMail(inv){
+  const subject=encodeURIComponent(`Invoice #${inv.number} from ${businessName()}`);
+  const body=encodeURIComponent(
+`Hi ${inv.clientName},
+
+Please find invoice #${inv.number} for ${money(inv.total)}.
+
+Due: ${inv.dueDate}
+
+This prototype does not yet host invoices online, so use the invoice details in the app or attach a PDF after printing the invoice page.
+
+Thank you,
+${businessName()}`);
+  location.href=`mailto:${encodeURIComponent(inv.clientEmail)}?subject=${subject}&body=${body}`;
+}
+function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
+function invoiceHTML(inv){
+  return `<div style="display:flex;justify-content:space-between;gap:12px">
+    <div><h2>INVOICE</h2><div class="meta">#${esc(inv.number)} · ${esc(inv.date)}</div></div>
+    <div style="text-align:right"><div class="title">${esc(businessName())}</div><div class="meta">Due ${esc(inv.dueDate)}</div></div>
+  </div>
+  <div style="margin:24px 0"><div class="meta">Bill to</div><div class="title">${esc(inv.clientName)}</div><div class="meta">${esc(inv.clientEmail||'')}</div></div>
+  ${inv.lines.map(line=>`<div class="inv-line"><div><strong>${esc(line.name)}</strong><div class="meta">${line.qty} × ${money(line.rate)}</div></div><strong>${money(line.qty*line.rate)}</strong></div>`).join('')}
+  <div class="total"><span>Total</span><strong>${money(inv.total)}</strong></div>
+  ${inv.notes?`<div class="notice" style="margin-top:18px">${esc(inv.notes)}</div>`:''}`;
+}
+function sendCurrentInvoice(){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  if(!inv.sentAt)inv.sentAt=new Date().toISOString();
+  if(inv.status==='draft')inv.status='sent';
+  persist();openMail(inv);openInvoiceDetail(inv.id);
+}
+function markViewed(){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  if(!inv.viewedAt)inv.viewedAt=new Date().toISOString();
+  if(inv.status!=='paid')inv.status='viewed';
+  persist();openInvoiceDetail(inv.id);
+}
+function markPaid(){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  inv.status='paid';inv.paidAt=new Date().toISOString();inv.paidAmount=inv.total;
+  persist();openInvoiceDetail(inv.id);
+}
+function deleteCurrentInvoice(){
+  if(!confirm('Delete this invoice?'))return;
+  invoices=invoices.filter(i=>i.id!==currentInvoiceId);persist();showPage('home');
+}
+function effectiveStatus(inv){
+  if(inv.status==='paid')return 'paid';
+  const overdue=(new Date(inv.dueDate+'T23:59:59')<new Date());
+  if(overdue)return 'overdue';
+  if(inv.viewedAt)return 'viewed';
+  if(inv.sentAt)return 'sent';
+  return 'draft';
+}
+function statusLabel(inv){
+  const s=effectiveStatus(inv);
+  return `<span class="badge badge-${s}">${s.toUpperCase()}</span>`;
+}
+function setFilter(value,btn){
+  filter=value;
+  [...$('filterBar').querySelectorAll('.chip')].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderInvoices();
+}
+function renderHome(){
+  renderStats();renderInvoices();
+}
+function renderStats(){
+  const now=new Date();
+  const paidThisMonth=invoices.filter(i=>i.status==='paid'&&i.paidAt&&new Date(i.paidAt).getMonth()===now.getMonth()&&new Date(i.paidAt).getFullYear()===now.getFullYear()).reduce((s,i)=>s+i.total,0);
+  const overdue=invoices.filter(i=>effectiveStatus(i)==='overdue').reduce((s,i)=>s+(i.total-(i.paidAmount||0)),0);
+  const outstanding=invoices.filter(i=>['sent','viewed','overdue'].includes(effectiveStatus(i))).reduce((s,i)=>s+(i.total-(i.paidAmount||0)),0);
+  $('statOverdue').textContent=money(overdue);
+  $('statOutstanding').textContent=money(outstanding);
+  $('statPaidMonth').textContent=money(paidThisMonth);
+}
+function renderInvoices(){
+  const visible=invoices.filter(i=>filter==='all'||effectiveStatus(i)===filter);
+  $('invoiceList').innerHTML='';
+  if(!visible.length){$('invoiceList').innerHTML='<div class="card empty">No invoices here yet.</div>';return}
+  visible.forEach(inv=>{
+    const e=document.createElement('div');e.className='entry';
+    e.innerHTML=`<button onclick='openInvoiceDetail(${JSON.stringify(inv.id)})'>
+      <div style="display:flex;justify-content:space-between;gap:10px">
+        <div><div class="title">${esc(inv.clientName)}</div><div class="meta">#${esc(inv.number)} · Due ${esc(inv.dueDate)}</div>${statusLabel(inv)}</div>
+        <div class="money">${money(inv.total)}</div>
+      </div></button>`;
+    $('invoiceList').appendChild(e);
+  });
+}
+function openInvoiceDetail(id){
+  currentInvoiceId=id;
+  const inv=invoices.find(i=>i.id===id);if(!inv)return;
+  $('pageTitle').textContent=`Invoice #${inv.number}`;
+  $('pageSub').textContent=inv.clientName;
+  $('detailCard').innerHTML=invoiceHTML(inv)+timelineHTML(inv);
+  showPage('detail');
+  $('pageTitle').textContent=`Invoice #${inv.number}`;
+  $('pageSub').textContent=inv.clientName;
+}
+function timelineHTML(inv){
+  const rows=[
+    ['Created',inv.createdAt],
+    ['Sent',inv.sentAt],
+    ['Viewed',inv.viewedAt],
+    ['Paid',inv.paidAt]
+  ];
+  return `<div class="section-title">Timeline</div><div class="timeline">
+    ${rows.map(([name,time])=>`<div class="timeline-row"><div class="dot ${time?'on':''}"></div><div><div class="event">${name}</div><div class="when">${time?new Date(time).toLocaleString():'Not yet'}</div></div></div>`).join('')}
+  </div>
+  <div class="notice" style="margin-top:16px">“Viewed” is manual in this static prototype. Automatic first-view tracking requires a hosted invoice link and a small backend.</div>`;
+}
+function renderClients(){
+  const q=($('clientSearch')?.value||'').toLowerCase();
+  const visible=clients.filter(c=>c.name.toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));
+  $('clientList').innerHTML='';
+  if(!visible.length){$('clientList').innerHTML='<div class="card empty">Clients appear after you create an invoice.</div>';return}
+  visible.sort((a,b)=>a.name.localeCompare(b.name)).forEach(c=>{
+    const invs=invoices.filter(i=>i.clientId===c.id);
+    const total=invs.reduce((s,i)=>s+i.total,0);
+    const outstanding=invs.filter(i=>effectiveStatus(i)!=='paid').reduce((s,i)=>s+i.total-(i.paidAmount||0),0);
+    const e=document.createElement('div');e.className='entry';
+    e.innerHTML=`<button onclick='openClientDetail(${JSON.stringify(c.id)})'>
+      <div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">${esc(c.name)}</div><div class="meta">${esc(c.email||'No email')}<br>${invs.length} invoice${invs.length===1?'':'s'}</div></div><div style="text-align:right"><div class="money">${money(total)}</div><div class="meta">${money(outstanding)} outstanding</div></div></div>
+    </button>`;
+    $('clientList').appendChild(e);
+  });
+}
+function openClientDetail(id){
+  currentClientId=id;const c=clients.find(x=>x.id===id);if(!c)return;
+  const invs=invoices.filter(i=>i.clientId===id);
+  const total=invs.reduce((s,i)=>s+i.total,0);
+  const paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0);
+  const outstanding=total-paid;
+  const paidDurations=invs.filter(i=>i.sentAt&&i.paidAt).map(i=>(new Date(i.paidAt)-new Date(i.sentAt))/86400000);
+  const avg=paidDurations.length?Math.round(paidDurations.reduce((a,b)=>a+b,0)/paidDurations.length):null;
+  $('clientDetailCard').innerHTML=`<div class="title" style="font-size:23px">${esc(c.name)}</div><div class="meta">${esc(c.email||'No email')}</div>
+  <div class="grid3" style="margin-top:10px">
+    <div class="stat"><div class="label">Invoiced</div><div class="value">${money(total)}</div></div>
+    <div class="stat"><div class="label">Outstanding</div><div class="value">${money(outstanding)}</div></div>
+    <div class="stat"><div class="label">Average payment</div><div class="value">${avg===null?'—':avg+' days'}</div></div>
+  </div>
+  <button class="primary full" onclick="newInvoiceForClient(${JSON.stringify(c.id)})">New invoice for this client</button>`;
+  $('clientInvoiceList').innerHTML='';
+  invs.forEach(inv=>{
+    const e=document.createElement('div');e.className='entry';
+    e.innerHTML=`<button onclick='openInvoiceDetail(${JSON.stringify(inv.id)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">#${esc(inv.number)}</div><div class="meta">Due ${esc(inv.dueDate)}</div>${statusLabel(inv)}</div><div class="money">${money(inv.total)}</div></div></button>`;
+    $('clientInvoiceList').appendChild(e);
+  });
+  $('pageTitle').textContent=c.name;$('pageSub').textContent='Client history';
+  showPage('clientDetail');$('pageTitle').textContent=c.name;$('pageSub').textContent='Client history';
+}
+function newInvoiceForClient(id){
+  const c=clients.find(x=>x.id===id);openNewInvoice();if(c){$('clientName').value=c.name;$('clientEmail').value=c.email||''}
+}
+function renderItems(){
+  const q=($('itemSearch')?.value||'').toLowerCase();
+  const visible=items.filter(i=>i.name.toLowerCase().includes(q));
+  $('savedItemList').innerHTML='';
+  if(!visible.length){$('savedItemList').innerHTML='<div class="card empty">No saved items yet.</div>';return}
+  visible.sort((a,b)=>(b.useCount||0)-(a.useCount||0)).forEach(item=>{
+    const e=document.createElement('div');e.className='entry';
+    e.innerHTML=`<div><div class="title">${esc(item.name)}</div><div class="meta">Used ${item.useCount||0} time${item.useCount===1?'':'s'}</div></div><div class="money">${money(item.rate)}</div>`;
+    $('savedItemList').appendChild(e);
+  });
+}
+function openNewItem(){$('itemEditor').classList.remove('hidden');$('editItemName').value='';$('editItemRate').value=''}
+function saveNewItem(){
+  const name=$('editItemName').value.trim(),rate=Number($('editItemRate').value||0);
+  if(!name)return alert('Add a name.');
+  items.push({id:uid(),name,rate,useCount:0});persist();$('itemEditor').classList.add('hidden');renderItems();
+}
+async function importVCard(event){
+  const file=event.target.files?.[0];if(!file)return;
+  const text=await file.text();
+  const fn=(text.match(/^FN:(.+)$/mi)||[])[1]?.trim()||'';
+  const org=(text.match(/^ORG:(.+)$/mi)||[])[1]?.replace(/;/g,' ').trim()||'';
+  const email=(text.match(/^EMAIL[^:]*:(.+)$/mi)||[])[1]?.trim()||'';
+  const name=org||fn;
+  if(name)$('clientName').value=name;
+  if(email)$('clientEmail').value=email;
+  if(!name&&!email)alert('I could not read a name or email from that contact file.');
+  event.target.value='';
+}
+
+showPage('home');
+</script>
+</body>
+</html>
