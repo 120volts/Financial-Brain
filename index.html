@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Financial Brain</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+:root{--bg:#eff7f1;--card:#fff;--ink:#142018;--muted:#66736a;--line:#dce8df;--green:#1f7a4d;--green2:#dff2e6;--amber:#9a6800;--amber2:#fff3ce;--red:#a33a35;--red2:#fde9e7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px 14px;font-weight:800}
+.app{max-width:820px;margin:auto;padding:20px 14px 95px}.kicker{font-size:12px;letter-spacing:.12em;font-weight:900;text-transform:uppercase;color:var(--green)}
+h1{margin:4px 0 2px;font-size:30px}.sub{color:var(--muted);font-size:14px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.label{font-size:12px;color:var(--muted);font-weight:800}.value{font-size:24px;font-weight:900;margin-top:7px}
+.primary{background:var(--green);color:#fff}.secondary{background:#e7efe9;color:var(--ink)}.full{width:100%}.big{padding:15px;font-size:17px}
+.list{display:grid;gap:9px}.event{display:flex;justify-content:space-between;gap:10px;background:#fff;border:1px solid var(--line);border-radius:15px;padding:14px}
+.event button{background:transparent;padding:0;text-align:left;color:inherit;width:100%}.title{font-weight:900}.meta{font-size:13px;color:var(--muted);line-height:1.45;margin-top:4px}.amount{font-size:18px;font-weight:900}
+.badge{display:inline-block;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:900;margin-top:7px}.ok{background:var(--green2);color:var(--green)}.warn{background:var(--amber2);color:var(--amber)}.bad{background:var(--red2);color:var(--red)}
+.progress{height:10px;background:#dfe9e2;border-radius:99px;overflow:hidden;margin-top:10px}.progress div{height:100%;background:var(--green)}
+.hidden{display:none!important}.choices{display:grid;gap:8px;margin-top:12px}.choices button{background:#f3f7f4;border:1px solid var(--line);text-align:left}
+label{display:block;font-size:12px;font-weight:900;color:var(--muted);margin:12px 0 6px}input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:16px}
+.row{display:flex;gap:9px}.row>*{flex:1}.bottom{position:fixed;left:0;right:0;bottom:0;background:#fffffff2;border-top:1px solid var(--line);padding:10px}.nav{max-width:820px;margin:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.nav button{background:transparent;color:var(--muted)}.nav button.active{background:var(--green);color:#fff}
+@media(max-width:560px){.grid{grid-template-columns:1fr 1fr}.grid .card:last-child{grid-column:1/-1}.row{display:block}.row>*+*{margin-top:8px}}
+</style></head>
+<body><div class="app">
+<header><div class="kicker">Financial Brain</div><h1 id="pageTitle">Today</h1><div class="sub" id="pageSub">Financial Brain noticed these events.</div></header>
+
+<section id="home">
+<div class="grid">
+<div class="card"><div class="label">Tax readiness</div><div class="value" id="ready">0%</div><div class="progress"><div id="bar"></div></div></div>
+<div class="card"><div class="label">Income received</div><div class="value" id="income">$0</div></div>
+<div class="card"><div class="label">Needs attention</div><div class="value" id="needs">0</div></div>
+</div>
+<button class="primary big full" onclick="demo()">Load demo events</button>
+<h2>Event inbox</h2><div id="events" class="list"></div>
+</section>
+
+<section id="detail" class="hidden"><div id="detailCard" class="card"></div><div id="questionCard" class="card hidden"></div><button class="secondary full" onclick="show('home')">Back</button></section>
+
+<section id="detect" class="hidden"><div class="card">
+<label>Detected event</label><select id="type"><option value="purchase">Purchase</option><option value="paid_invoice">Paid invoice</option><option value="document">Tax document</option><option value="deposit">Unknown deposit</option></select>
+<label>Name</label><input id="name" placeholder="Sony FX3, Invoice #1042, W-2…">
+<div class="row"><div><label>Amount</label><input id="amount" type="number" step="0.01"></div><div><label>Date</label><input id="date" type="date"></div></div>
+<label>Source</label><input id="source" placeholder="Invoice app, receipt, bank, document…">
+<button class="primary full" style="margin-top:14px" onclick="addEvent()">Add detected event</button>
+</div></section>
+
+
+
+<section id="importPage" class="hidden">
+  <div class="card">
+    <div class="title">Financial Inbox</div>
+    <div class="meta">Drop in statements, receipts, spreadsheets, or tax documents. Processing happens in this browser for the prototype.</div>
+
+    <label>Tax year</label>
+    <select id="taxYear"></select>
+
+    <div id="dropzone" class="dropzone" onclick="$('universalFile').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFiles(event)">
+      <div style="font-size:34px">📥</div>
+      <div class="title" style="margin-top:8px">Choose or drop files</div>
+      <div class="meta">CSV · Excel · PDF · JPG · PNG · text files</div>
+    </div>
+    <input id="universalFile" class="hidden" type="file" multiple accept=".csv,.xlsx,.xls,.pdf,.jpg,.jpeg,.png,.webp,.txt,text/csv,application/pdf,image/*" onchange="handleUniversalFiles(event.target.files)">
+
+    <div id="processingStatus" class="hidden" style="margin-top:12px">
+      <div class="filecard"><div><div class="title" id="processingName">Processing…</div><div class="meta" id="processingDetail"></div></div><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div id="documentResults" class="hidden">
+    <div class="card">
+      <div class="title" id="documentTitle">Document recognized</div>
+      <div class="meta" id="documentMeta"></div>
+      <div id="documentActions" style="margin-top:12px"></div>
+      <details style="margin-top:12px"><summary class="meta">Show extracted text</summary><div id="extractedText" class="rawtext" style="margin-top:9px"></div></details>
+    </div>
+  </div>
+
+  <div id="mappingArea" class="card hidden">
+    <div class="title">Match transaction columns</div>
+    <div class="meta">Used for CSV and spreadsheet transaction tables.</div>
+    <div class="mapgrid">
+      <div><label>Date</label><select id="mapDate"></select></div>
+      <div><label>Description</label><select id="mapDescription"></select></div>
+      <div><label>Amount</label><select id="mapAmount"></select></div>
+      <div><label>Debit / credit</label><select id="mapType"><option value="">Not used</option></select></div>
+    </div>
+    <label>Amount format</label>
+    <select id="amountMode">
+      <option value="signed">Expenses negative, deposits positive</option>
+      <option value="debit_positive">Expenses/debits are positive numbers</option>
+      <option value="credit_positive">Deposits/credits are positive numbers</option>
+    </select>
+    <button class="primary full" style="margin-top:14px" onclick="analyzeCSV()">Analyze selected year</button>
+  </div>
+
+  <div id="importResults" class="hidden">
+    <div class="sumgrid">
+      <div class="sumbox"><span class="label">Rows</span><b id="sumRows">0</b></div>
+      <div class="sumbox"><span class="label">Inside year</span><b id="sumInYear">0</b></div>
+      <div class="sumbox"><span class="label">Outside year</span><b id="sumOutYear">0</b></div>
+      <div class="sumbox"><span class="label">Needs review</span><b id="sumReview">0</b></div>
+    </div>
+    <div class="card">
+      <div class="title">Review before importing</div>
+      <div class="meta">Only checked rows inside the selected year will be imported.</div>
+      <div class="table-wrap" style="margin-top:12px">
+        <table><thead><tr><th>Use</th><th>Date</th><th>Description</th><th>Amount</th><th>Detected as</th><th>Confidence</th></tr></thead><tbody id="csvPreview"></tbody></table>
+      </div>
+      <button class="primary full" style="margin-top:14px" onclick="importAnalyzedRows()">Import checked rows</button>
+    </div>
+  </div>
+</section>
+<section id="tax" class="hidden"><div class="card"><h2>What Financial Brain currently knows</h2><div id="taxSummary" class="list"></div></div><div class="card meta">Interaction prototype only; not filing-grade tax software yet.</div></section>
+
+<section id="settings" class="hidden"><div class="card"><div class="title">How it connects</div><div class="meta">Invoice sends paid-invoice events. A bank sends deposits and purchases. Email or uploads send receipts and tax documents.</div><button class="secondary full" style="margin-top:14px" onclick="resetAll()">Reset</button></div></section>
+</div>
+
+<nav class="bottom"><div class="nav" style="grid-template-columns:repeat(5,1fr)"><button id="n1" class="active" onclick="show('home')">Today</button><button onclick="show('detect')">Detect</button><button id="n2" onclick="show('import')">Import</button><button id="n3" onclick="show('tax')">Tax view</button><button id="n4" onclick="show('settings')">Settings</button></div></nav>
+
+<script>
+const $=id=>document.getElementById(id), money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(+n||0), uid=()=>Date.now()+Math.random(), today=()=>new Date().toISOString().slice(0,10);
+let data=JSON.parse(localStorage.getItem('fb.events')||'[]'), current=null;
+function save(){localStorage.setItem('fb.events',JSON.stringify(data))}
+function show(page){['home','detail','detect','importPage','tax','settings'].forEach(x=>$(x).classList.add('hidden'));$(page==='import'?'importPage':page).classList.remove('hidden');['n1','n2','n3','n4'].forEach(x=>$(x).classList.remove('active'));if(page==='home'){n1.classList.add('active');pageTitle.textContent='Today';pageSub.textContent='Financial Brain noticed these events.';render()}if(page==='detect'){pageTitle.textContent='Detect an event';pageSub.textContent='Manual stand-in for automatic connections.';date.value=today()}if(page==='import'){n2.classList.add('active');pageTitle.textContent='Import statements';pageSub.textContent='Cull a CSV to one tax year.';populateYears()}if(page==='tax'){n3.classList.add('active');pageTitle.textContent='Tax view';pageSub.textContent='The result of understood events.';renderTax()}if(page==='settings'){n4.classList.add('active');pageTitle.textContent='Settings';pageSub.textContent='Connections and event data.'}}
+function demo(){data=[{id:uid(),type:'paid_invoice',name:'Netflix Documentary',amount:2400,date:today(),source:'Invoice app',status:'understood',confidence:100,facts:{client:'Ten Group',classification:'Business income'},questions:[]},{id:uid(),type:'purchase',name:'Sony FX3 Camera',amount:3898,date:today(),source:'B&H receipt',status:'review',confidence:84,facts:{recognized_as:'Camera equipment'},questions:['use','purpose']},{id:uid(),type:'deposit',name:'Unknown bank deposit',amount:750,date:today(),source:'Bank connection',status:'review',confidence:20,facts:{},questions:['deposit']},{id:uid(),type:'document',name:'W-2 received',amount:0,date:today(),source:'Upload',status:'understood',confidence:99,facts:{document:'W-2'},questions:[]}];save();render()}
+function render(){let ok=data.filter(x=>x.status==='understood').length,pct=data.length?Math.round(ok/data.length*100):0;ready.textContent=pct+'%';bar.style.width=pct+'%';income.textContent=money(data.filter(x=>x.type==='paid_invoice'&&x.status==='understood').reduce((s,x)=>s+x.amount,0));needs.textContent=data.filter(x=>x.status!=='understood').length;events.innerHTML='';if(!data.length)events.innerHTML='<div class="card meta">Load the demo to see how events move through Financial Brain.</div>';data.forEach(e=>{let el=document.createElement('div');el.className='event';el.innerHTML=`<button onclick="openEvent('${e.id}')"><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">${icon(e.type)} ${e.name}</div><div class="meta">${e.source} · ${e.date}</div><span class="badge ${e.status==='understood'?'ok':e.confidence<40?'bad':'warn'}">${e.status==='understood'?'UNDERSTOOD':'NEEDS REVIEW'}</span></div><div><div class="amount">${e.amount?money(e.amount):''}</div><div class="meta">${e.confidence}% confidence</div></div></div></button>`;events.appendChild(el)})}
+function icon(t){return {paid_invoice:'💵',purchase:'📷',deposit:'🏦',document:'📄'}[t]||'•'}
+function openEvent(id){current=data.find(x=>String(x.id)===String(id));detailCard.innerHTML=`<div class="title">${icon(current.type)} ${current.name}</div><div class="meta">${current.source} · ${current.date}</div><h3>What Financial Brain knows</h3><div class="meta">${Object.entries(current.facts||{}).map(([k,v])=>`${k.replaceAll('_',' ')}: <b>${v}</b>`).join('<br>')||'Nothing confirmed yet.'}</div>`;ask();show('detail');pageTitle.textContent='Event';pageSub.textContent='Only missing information is requested.'}
+function ask(){if(current.status==='understood'||!current.questions.length){questionCard.classList.add('hidden');return}questionCard.classList.remove('hidden');let q=current.questions[0],title='',choices=[];if(q==='use'){title='How will this camera be used?';choices=['Business','Personal','Both','Not sure']}if(q==='purpose'){title='Why did you buy it?';choices=['Client work','General business','Repair or maintain equipment','Build products','Other']}if(q==='deposit'){title='What was this deposit?';choices=['Payment for work','Reimbursement','Transfer between my accounts','Loan','Refund','Gift / personal','Not sure']}questionCard.innerHTML=`<div class="title">${title}</div><div class="choices">${choices.map(c=>`<button onclick="answer('${c}')">${c}</button>`).join('')}</div>`}
+function answer(v){let q=current.questions.shift();current.facts[q]=v;if(q==='use'&&v==='Personal')current.facts.tax_direction='Exclude from business expenses';if(q==='deposit'&&v==='Not sure'){current.questions.unshift(q);current.confidence=25;save();openEvent(current.id);return}if(!current.questions.length){current.status='understood';current.confidence=Math.max(current.confidence,95)}else current.confidence=Math.max(current.confidence,90);save();openEvent(current.id)}
+function addEvent(){let e={id:uid(),type:type.value,name:name.value.trim(),amount:+amount.value||0,date:date.value||today(),source:source.value.trim()||'Manual detection',status:'review',confidence:50,facts:{},questions:[]};if(!e.name)return alert('Add a name.');if(e.type==='purchase'){e.questions=['use','purpose'];e.confidence=65}if(e.type==='paid_invoice'){e.status='understood';e.confidence=100;e.facts={classification:'Business income'}}if(e.type==='document'){e.status='understood';e.confidence=95;e.facts={document:e.name}}if(e.type==='deposit'){e.questions=['deposit'];e.confidence=20}data.unshift(e);save();show('home')}
+function renderTax(){let inc=data.filter(x=>x.type==='paid_invoice'&&x.status==='understood').reduce((s,x)=>s+x.amount,0),p=data.filter(x=>x.type==='purchase'&&x.status==='understood'&&['Business','Both'].includes(x.facts.use)).reduce((s,x)=>s+x.amount,0),r=data.filter(x=>x.status!=='understood').length;taxSummary.innerHTML=`<div class="event"><div><div class="title">Business income received</div><div class="meta">From understood paid invoices</div></div><div class="amount">${money(inc)}</div></div><div class="event"><div><div class="title">Business purchases identified</div><div class="meta">Tax treatment comes later</div></div><div class="amount">${money(p)}</div></div><div class="event"><div class="title">Still needs review</div><div class="amount">${r}</div></div>`}
+
+
+let currentDocument={name:'',type:'',text:'',pages:0};
+
+function dragOver(e){e.preventDefault();dropzone.classList.add('drag')}
+function dragLeave(e){dropzone.classList.remove('drag')}
+function dropFiles(e){e.preventDefault();dropzone.classList.remove('drag');handleUniversalFiles(e.dataTransfer.files)}
+
+async function handleUniversalFiles(fileList){
+  const files=[...fileList];if(!files.length)return;
+  for(const file of files){await processUniversalFile(file)}
+  universalFile.value='';
+}
+function showProcessing(file,detail){
+  processingStatus.classList.remove('hidden');processingName.textContent=file.name;processingDetail.textContent=detail||'Reading file locally…';
+  documentResults.classList.add('hidden');mappingArea.classList.add('hidden');importResults.classList.add('hidden');
+}
+function finishProcessing(){processingStatus.classList.add('hidden')}
+function ext(name){return (name.split('.').pop()||'').toLowerCase()}
+
+async function processUniversalFile(file){
+  const e=ext(file.name);
+  showProcessing(file,'Identifying document type…');
+  try{
+    if(e==='csv'){await processCSVFile(file);return}
+    if(e==='xlsx'||e==='xls'){await processExcelFile(file);return}
+    if(e==='pdf'){await processPDFFile(file);return}
+    if(['jpg','jpeg','png','webp'].includes(e)){await processImageFile(file);return}
+    if(e==='txt'){await processTextFile(file);return}
+    throw new Error('Unsupported format');
+  }catch(err){
+    finishProcessing();alert(`Could not process ${file.name}: ${err.message||err}`);
+  }
+}
+
+async function processCSVFile(file){
+  showProcessing(file,'Reading CSV rows…');
+  const rows=parseCSV(await file.text());
+  prepareStructuredRows(file.name,rows,'CSV statement or spreadsheet');
+}
+
+async function processExcelFile(file){
+  showProcessing(file,'Reading spreadsheet workbook…');
+  if(!window.XLSX)throw new Error('Spreadsheet reader did not load. Check internet connection.');
+  const buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:'array',cellDates:true});
+  const first=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(first,{header:1,raw:false,defval:''});
+  prepareStructuredRows(file.name,rows,`Excel workbook · sheet: ${wb.SheetNames[0]}`);
+}
+
+function prepareStructuredRows(name,rows,label){
+  finishProcessing();
+  if(rows.length<2)throw new Error('No usable table rows found.');
+  csvHeaders=rows[0].map(x=>String(x).trim());
+  csvRows=rows.slice(1).map(r=>{const o={};csvHeaders.forEach((h,i)=>o[h]=String(r[i]??'').trim());return o});
+  fill('mapDate',guess(csvHeaders,['date','posted']));
+  fill('mapDescription',guess(csvHeaders,['description','merchant','memo','name','details']));
+  fill('mapAmount',guess(csvHeaders,['amount','debit','withdrawal','total']));
+  fill('mapType',guess(csvHeaders,['type','credit']),true);
+  currentDocument={name,type:'structured',text:`${rows.length-1} data rows`,pages:1};
+  documentTitle.textContent=label;
+  documentMeta.textContent=`${name} · ${rows.length-1} rows found`;
+  extractedText.textContent=rows.slice(0,20).map(r=>r.join(' | ')).join('\n');
+  documentActions.innerHTML='<div class="notice">Map the columns below, then analyze only the selected tax year.</div>';
+  documentResults.classList.remove('hidden');mappingArea.classList.remove('hidden');
+}
+
+async function getPdfJs(){
+  if(window.pdfjsLib)return window.pdfjsLib;
+  const lib=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+  lib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+  window.pdfjsLib=lib;return lib;
+}
+async function processPDFFile(file){
+  showProcessing(file,'Reading PDF pages…');
+  const lib=await getPdfJs(),buf=await file.arrayBuffer(),pdf=await lib.getDocument({data:buf}).promise;
+  let pages=[];
+  for(let n=1;n<=pdf.numPages;n++){
+    processingDetail.textContent=`Reading PDF page ${n} of ${pdf.numPages}…`;
+    const page=await pdf.getPage(n),content=await page.getTextContent();
+    pages.push(content.items.map(i=>i.str).join(' '));
+  }
+  finishProcessing();
+  const text=pages.join('\n');
+  showDocumentAnalysis(file.name,'PDF',text,pdf.numPages);
+}
+async function processImageFile(file){
+  showProcessing(file,'Reading image text with OCR…');
+  if(!window.Tesseract)throw new Error('OCR reader did not load. Check internet connection.');
+  const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status)processingDetail.textContent=`${m.status}${m.progress?` · ${Math.round(m.progress*100)}%`:''}`}});
+  finishProcessing();showDocumentAnalysis(file.name,'Image / receipt',result.data.text,1);
+}
+async function processTextFile(file){
+  showProcessing(file,'Reading text…');const text=await file.text();finishProcessing();showDocumentAnalysis(file.name,'Text document',text,1);
+}
+
+function recognizeDocument(text){
+  const t=text.toLowerCase();
+  const candidates=[
+    ['W-2',/form w-?2|wage and tax statement/,98],
+    ['1099-NEC',/1099-nec|nonemployee compensation/,98],
+    ['1099-MISC',/1099-misc|miscellaneous information/,95],
+    ['1099-K',/1099-k|payment card and third party network/,95],
+    ['1099-INT',/1099-int|interest income/,95],
+    ['1099-DIV',/1099-div|dividends and distributions/,95],
+    ['Mortgage statement / 1098',/form 1098|mortgage interest statement/,95],
+    ['Brokerage statement',/brokerage|capital gain|cost basis|proceeds|1099-b/,85],
+    ['Bank or credit-card statement',/statement period|previous balance|ending balance|transactions|account summary/,82],
+    ['Receipt',/subtotal|sales tax|total|thank you for your purchase/,80]
+  ];
+  for(const [name,re,confidence] of candidates)if(re.test(t))return {name,confidence};
+  return {name:'Unclassified financial document',confidence:45};
+}
+function extractYearHints(text){
+  const years=[...String(text).matchAll(/\b(20\d{2})\b/g)].map(m=>+m[1]);
+  return [...new Set(years)].sort();
+}
+function extractMoneyHints(text){
+  return [...String(text).matchAll(/\$?\s?(\(?-?\d{1,3}(?:,\d{3})*(?:\.\d{2})\)?)/g)].slice(0,30).map(m=>m[0].trim());
+}
+function showDocumentAnalysis(name,type,text,pages){
+  currentDocument={name,type,text,pages};
+  const rec=recognizeDocument(text),years=extractYearHints(text),selected=+taxYear.value;
+  documentTitle.textContent=rec.name;
+  documentMeta.textContent=`${name} · ${pages} page${pages===1?'':'s'} · ${rec.confidence}% confidence`;
+  extractedText.textContent=text.slice(0,30000)||'(No readable text found)';
+  const relevant=years.length?years.includes(selected):null;
+  const yearMessage=relevant===true?`The document appears to include ${selected}.`:relevant===false?`Warning: detected year(s) ${years.join(', ')}, not selected tax year ${selected}.`:`No reliable year found. Review before importing.`;
+  documentActions.innerHTML=`
+    <div class="notice">${yearMessage}</div>
+    <button class="primary full" style="margin-top:10px" onclick="importDocumentEvent('${rec.name.replaceAll("'","\\'")}',${rec.confidence},${relevant===false})">Add as a document event</button>
+    ${rec.name.includes('statement')?'<button class="secondary full" style="margin-top:9px" onclick="attemptStatementTextExtraction()">Try to find transaction lines</button>':''}`;
+  documentResults.classList.remove('hidden');
+}
+function importDocumentEvent(kind,confidence,wrongYear){
+  if(wrongYear&&!confirm(`This may not belong to ${taxYear.value}. Import anyway for review?`))return;
+  data.unshift({id:uid(),type:'document',name:kind,amount:0,date:today(),source:`${currentDocument.type}: ${currentDocument.name}`,status:wrongYear?'review':'understood',confidence:wrongYear?40:confidence,facts:{document_type:kind,selected_tax_year:taxYear.value,file_name:currentDocument.name},questions:wrongYear?[]:[]});
+  save();alert('Document event added.');show('home');
+}
+function attemptStatementTextExtraction(){
+  const lines=currentDocument.text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const parsed=[];
+  const re=/(\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?)\s+(.+?)\s+(\(?-?\$?\d[\d,]*\.\d{2}\)?)(?:\s|$)/;
+  for(const line of lines){const m=line.match(re);if(m)parsed.push([m[1],m[2],m[3]])}
+  if(parsed.length<2){alert('I could not reliably identify a transaction table in this PDF. CSV or Excel will be more accurate for this statement.');return}
+  prepareStructuredRows(currentDocument.name,[['Date','Description','Amount'],...parsed],`PDF statement · ${parsed.length} possible transactions`);
+}
+
+let csvRows=[],csvHeaders=[],analyzed=[];
+function populateYears(){
+  if(taxYear.options.length)return;
+  const y=new Date().getFullYear();
+  for(let n=y+1;n>=y-10;n--){let o=document.createElement('option');o.value=n;o.textContent=n;if(n===y)o.selected=true;taxYear.appendChild(o)}
+}
+function parseCSV(text){
+  const out=[];let row=[],cell='',q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i],n=text[i+1];
+    if(c==='"'){if(q&&n==='"'){cell+='"';i++}else q=!q}
+    else if(c===','&&!q){row.push(cell);cell=''}
+    else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);cell='';if(row.some(v=>v.trim()))out.push(row);row=[]}
+    else cell+=c;
+  }
+  if(cell||row.length){row.push(cell);if(row.some(v=>v.trim()))out.push(row)}
+  return out;
+}
+function guess(headers,words){const low=headers.map(h=>h.toLowerCase());for(const w of words){let i=low.findIndex(h=>h.includes(w));if(i>=0)return headers[i]}return headers[0]||''}
+function fill(id,guessValue,blank=false){const s=$(id);s.innerHTML=blank?'<option value="">Not used</option>':'';csvHeaders.forEach(h=>{let o=document.createElement('option');o.value=h;o.textContent=h;if(h===guessValue)o.selected=true;s.appendChild(o)})}
+async function loadCSV(e){
+  const f=e.target.files?.[0];if(!f)return;
+  const rows=parseCSV(await f.text());if(rows.length<2)return alert('No usable transaction rows found.');
+  csvHeaders=rows[0].map(x=>x.trim());
+  csvRows=rows.slice(1).map(r=>{let o={};csvHeaders.forEach((h,i)=>o[h]=(r[i]||'').trim());return o});
+  fill('mapDate',guess(csvHeaders,['date','posted']));
+  fill('mapDescription',guess(csvHeaders,['description','merchant','memo','name']));
+  fill('mapAmount',guess(csvHeaders,['amount','debit','withdrawal']));
+  fill('mapType',guess(csvHeaders,['type','credit']),true);
+  mappingArea.classList.remove('hidden');importResults.classList.add('hidden');
+}
+function parseDate(v){let d=new Date(v);if(!isNaN(d))return d;let m=String(v).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);if(m){let y=+m[3];if(y<100)y+=2000;d=new Date(y,+m[1]-1,+m[2]);if(!isNaN(d))return d}return null}
+function parseAmount(v){let s=String(v||'').replace(/[$,\s]/g,''),neg=/^\(.*\)$/.test(s);if(neg)s=s.slice(1,-1);let n=parseFloat(s)||0;return neg?-n:n}
+function normalize(raw,t){let n=parseAmount(raw),mode=amountMode.value,type=String(t||'').toLowerCase();if(mode==='debit_positive'&&!/credit|deposit|refund/.test(type))n=-Math.abs(n);if(mode==='credit_positive'&&/debit|withdraw|purchase/.test(type))n=-Math.abs(n);return n}
+function classify(desc,amt){
+  const d=desc.toLowerCase();let label=amt>0?'Deposit detected':'Purchase detected',type=amt>0?'deposit':'purchase',confidence=50;
+  const rules=[
+    [/b&h|adorama|smallrig|tilta|camera|lens|sony|canon|arri/,'purchase','Possible camera equipment',88],
+    [/home depot|lowe|harbor freight|grainger|mcmaster/,'purchase','Possible tools or supplies',78],
+    [/hotel|hilton|marriott|delta|american airlines|uber|lyft/,'purchase','Possible travel expense',75],
+    [/restaurant|cafe|grill|doordash|ubereats/,'purchase','Possible meal',68],
+    [/interest/,'deposit','Interest received',85],
+    [/refund|reversal|return/,amt>0?'deposit':'purchase','Possible refund',78],
+    [/transfer|xfer/,'deposit','Possible transfer',65],
+    [/irs|treasury tax|tax payment/,'purchase','Tax payment',90],
+    [/payroll|salary|direct dep|ach credit/,'deposit','Possible income deposit',72]
+  ];
+  for(const r of rules)if(r[0].test(d)){type=r[1];label=r[2];confidence=r[3];break}
+  return {type,label,confidence};
+}
+function analyzeCSV(){
+  const year=+taxYear.value,dc=mapDate.value,xc=mapDescription.value,ac=mapAmount.value,tc=mapType.value;
+  analyzed=csvRows.map((r,i)=>{let date=parseDate(r[dc]),desc=r[xc]||'Unknown transaction',amount=normalize(r[ac],tc?r[tc]:'');let c=classify(desc,amount),inside=!!date&&date.getFullYear()===year;return {i,date:date?date.toISOString().slice(0,10):'',desc,amount,inside,use:inside,...c}});
+  let inside=analyzed.filter(x=>x.inside),outside=analyzed.filter(x=>!x.inside);
+  sumRows.textContent=analyzed.length;sumInYear.textContent=inside.length;sumOutYear.textContent=outside.length;sumReview.textContent=inside.filter(x=>x.confidence<80).length;
+  csvPreview.innerHTML=inside.slice(0,300).map(x=>`<tr><td><input type="checkbox" ${x.use?'checked':''} onchange="setUse(${x.i},this.checked)"></td><td>${x.date}</td><td>${x.desc}</td><td class="num">${money(x.amount)}</td><td>${x.label}</td><td>${x.confidence}%</td></tr>`).join('');
+  importResults.classList.remove('hidden');
+}
+function setUse(i,v){let x=analyzed.find(r=>r.i===i);if(x)x.use=v}
+function importAnalyzedRows(){
+  const chosen=analyzed.filter(x=>x.inside&&x.use);
+  chosen.forEach(x=>{let qs=x.type==='purchase'?['use','purpose']:['deposit'];data.unshift({id:uid(),type:x.type,name:x.desc,amount:Math.abs(x.amount),date:x.date,source:`CSV ${taxYear.value}`,status:'review',confidence:x.confidence,facts:{detected_as:x.label,original_signed_amount:x.amount},questions:qs})});
+  save();alert(`${chosen.length} rows imported for ${taxYear.value}. Rows outside that year were excluded.`);show('home');
+}
+
+function resetAll(){if(confirm('Clear prototype data?')){data=[];save();show('home')}}
+show('home');
+</script></body></html>
