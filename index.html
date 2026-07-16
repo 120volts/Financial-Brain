@@ -137,16 +137,13 @@ label{display:block;font-size:12px;font-weight:900;color:var(--muted);margin:12p
       <div class="title">Review before importing</div>
       <div class="meta">Only checked rows inside the selected year will be imported.</div>
       <div class="table-wrap" style="margin-top:12px">
-        <div class="bulkbar">
-  <button class="secondary" onclick="selectAllMerchantGroups(true)">Select all groups</button>
-  <button class="secondary" onclick="selectAllMerchantGroups(false)">Clear selection</button>
-  <div class="spacer"></div>
-  <span class="meta" id="selectedGroupCount">0 groups selected</span>
-  <button class="danger-btn" onclick="deleteSelectedMerchantGroups()">Delete selected</button>
+        <div class="notice" style="margin-bottom:10px">
+  Everything found inside the selected tax year is included automatically.
+  Open a merchant only when you need to change one charge or exclude it.
 </div>
 <div id="groupedPreview"></div>
       </div>
-      <button class="primary full" style="margin-top:14px" onclick="importAnalyzedRows()">Import checked rows</button>
+      <button class="primary full" style="margin-top:14px" onclick="importAnalyzedRows()">Import all included transactions</button>
     </div>
   </div>
 </section>
@@ -622,56 +619,6 @@ function displayDateTime(row){
   return row.time?`${row.date}<br><span class="meta">${row.time}</span>`:row.date;
 }
 
-let selectedMerchantGroups=new Set();
-
-function updateSelectedGroupCount(){
-  const count=selectedMerchantGroups.size;
-  const el=$('selectedGroupCount');
-  if(el)el.textContent=`${count} group${count===1?'':'s'} selected`;
-}
-function toggleMerchantGroupSelection(key,checked){
-  if(checked)selectedMerchantGroups.add(key);
-  else selectedMerchantGroups.delete(key);
-  updateSelectedGroupCount();
-  const el=document.querySelector(`[data-merchant-key="${CSS.escape(key)}"]`);
-  if(el)el.classList.toggle('selected',checked);
-}
-function selectAllMerchantGroups(checked){
-  const groups=[...new Set(analyzed.filter(x=>x.inside).map(x=>merchantKey(x.cleanName)||x.cleanName.toLowerCase()))];
-  selectedMerchantGroups=checked?new Set(groups):new Set();
-  renderAggregatedPreview();
-}
-function deleteSelectedMerchantGroups(){
-  if(!selectedMerchantGroups.size){
-    alert('Select at least one merchant group first.');
-    return;
-  }
-  const countRows=analyzed.filter(x=>x.inside&&selectedMerchantGroups.has(merchantKey(x.cleanName)||x.cleanName.toLowerCase())).length;
-  if(!confirm(`Delete ${selectedMerchantGroups.size} selected group${selectedMerchantGroups.size===1?'':'s'} containing ${countRows} transaction${countRows===1?'':'s'} from this import review?`))return;
-
-  analyzed=analyzed.filter(x=>!selectedMerchantGroups.has(merchantKey(x.cleanName)||x.cleanName.toLowerCase()));
-  selectedMerchantGroups.clear();
-
-  const inside=analyzed.filter(x=>x.inside);
-  sumRows.textContent=analyzed.length;
-  sumInYear.textContent=inside.length;
-  sumOutYear.textContent=analyzed.filter(x=>!x.inside).length;
-  sumReview.textContent=inside.filter(x=>x.confidence<80||x.group==='Needs review').length;
-  renderAggregatedPreview();
-}
-function deleteMerchantGroup(key){
-  const rows=analyzed.filter(x=>x.inside&&(merchantKey(x.cleanName)||x.cleanName.toLowerCase())===key);
-  if(!confirm(`Delete ${rows.length} transaction${rows.length===1?'':'s'} in this merchant group from the import review?`))return;
-  analyzed=analyzed.filter(x=>(merchantKey(x.cleanName)||x.cleanName.toLowerCase())!==key);
-  selectedMerchantGroups.delete(key);
-  const inside=analyzed.filter(x=>x.inside);
-  sumRows.textContent=analyzed.length;
-  sumInYear.textContent=inside.length;
-  sumOutYear.textContent=analyzed.filter(x=>!x.inside).length;
-  sumReview.textContent=inside.filter(x=>x.confidence<80||x.group==='Needs review').length;
-  renderAggregatedPreview();
-}
-
 function renderAggregatedPreview(){
   const inside=analyzed.filter(x=>x.inside);
   const groupsByMerchant={};
@@ -694,21 +641,15 @@ function renderAggregatedPreview(){
     return `<div class="group-head"><h3>${section}</h3><span class="group-count">${merchantGroups.reduce((s,g)=>s+g.count,0)} transactions · ${merchantGroups.length} merchants</span></div>
     ${merchantGroups.map((g,idx)=>{
       const id='mg-'+section.replace(/\W/g,'')+'-'+idx;
-      const checked=selectedMerchantGroups.has(g.key);
-      return `<div class="merchant-group ${checked?'selected':''}" data-merchant-key="${g.key}">
+      return `<div class="merchant-group">
         <div class="merchant-summary">
-          <div class="group-select">
-            <input type="checkbox" ${checked?'checked':''} onchange="toggleMerchantGroupSelection('${g.key.replaceAll("'","\'")}',this.checked)">
-            <div><div class="merchant-name">${g.name}${g.learned?'<span class="learned-badge">LEARNED</span>':''}</div>
-          <div class="merchant-meta">${g.count} transaction${g.count===1?'':'s'} · default: ${g.category}</div></div></div>
+          <div><div class="merchant-name">${g.name}${g.learned?'<span class="learned-badge">LEARNED</span>':''}</div>
+          <div class="merchant-meta">${g.count} transaction${g.count===1?'':'s'} · default: ${g.category}</div></div>
           <div><div class="merchant-total">${money(g.total)}</div><div class="merchant-meta">combined</div></div>
         </div>
         <div class="merchant-actions">
           <select onchange="learnMerchantCategory('${g.key.replaceAll("'","\\'")}',this.value)">${categoryOptions(g.category)}</select>
-          <div style="display:flex;gap:7px">
-            <button class="secondary" onclick="toggleMerchantDetails('${id}')">Show ${g.count}</button>
-            <button class="danger-btn" onclick="deleteMerchantGroup('${g.key.replaceAll("'","\'")}')">Delete group</button>
-          </div>
+          <button class="secondary" onclick="toggleMerchantDetails('${id}')">Show ${g.count}</button>
         </div>
         <div id="${id}" class="merchant-detail hidden">
           ${g.rows.map(r=>`<div class="merchant-detail-row">
@@ -724,7 +665,6 @@ function renderAggregatedPreview(){
       </div>`;
     }).join('')}`;
   }).join('');
-  updateSelectedGroupCount();
 }
 
 function analyzeCSV(){
@@ -799,8 +739,8 @@ function importAnalyzedRows(){
     });
   });
   save();
-  alert(`${chosen.length} rows imported for ${taxYear.value}. Transfers were separated from income and expenses.`);
-  show('home');
+  alert(`${chosen.length} transactions imported for ${taxYear.value}. Transfers were separated from income and expenses.`);
+  show('inbox');
 }
 
 
