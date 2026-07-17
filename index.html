@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f1ea">
+<title>Financial Brain</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="app">
+<header><div><small>FINANCIAL BRAIN</small><h1>Good evening, Gerald</h1></div><button class="avatar">GL</button></header>
+
+<div class="periods"><button class="active">This month</button><button>This year</button></div>
+
+<section class="top-grid">
+<button class="card" data-sheet="income"><span>Income</span><strong id="income">$12,940</strong><em>+$2,430 this month</em></button>
+<button class="card" data-sheet="purchases"><span>Purchases</span><strong id="purchases">$3,180</strong><em>78% categorized</em></button>
+<button class="card wide" data-sheet="mileage"><div><span>Business mileage</span><strong id="mileage">428 mi</strong></div><b>Est. deduction $287</b></button>
+</section>
+
+<section class="tax">
+<div class="tax-head"><div><small>LIVE TAX SNAPSHOT</small><h2 id="tax">$2,460</h2><p>Estimated federal tax so far</p></div><i>● Live</i></div>
+<div class="metrics">
+<div><span>Deductible expenses</span><strong id="deductible">$2,481</strong></div>
+<div><span>Potential tax savings</span><strong id="savings">$744</strong></div>
+</div>
+<button class="main-button" data-sheet="impact">Adjust items & see impact</button>
+</section>
+
+<section class="attention"><div><small>NEEDS ATTENTION</small><h3>4 purchases need review</h3><p>Financial Brain found charges it cannot confidently categorize.</p></div><button data-sheet="review">Review</button></section>
+
+<div class="section-title"><div><small>RECENT ACTIVITY</small><h2>What changed</h2></div><button data-sheet="activity">See all</button></div>
+
+<section class="activity" id="activityList">
+<article><span class="icon">I</span><div><strong>Invoice paid</strong><small>Think Global Media Group</small></div><b class="green">+$3,100</b></article>
+<article><span class="icon">P</span><div><strong>B&amp;H Photo</strong><small>Equipment · 100% business</small></div><b>−$486</b></article>
+<article><span class="icon">M</span><div><strong>Production mileage</strong><small>Fort Lauderdale → Miami</small></div><b>64 mi</b></article>
+</section>
+
+<section class="quick"><small>QUICK ADD</small><div><button data-add="income">Income</button><button data-add="purchase">Purchase</button><button data-add="mileage">Mileage</button><button data-add="receipt">Receipt</button></div></section>
+</main>
+
+<nav>
+<button class="active">⌂<span>Home</span></button>
+<button data-sheet="invoices">▤<span>Invoices</span></button>
+<button class="plus" id="plus">+</button>
+<button data-sheet="purchases">◫<span>Purchases</span></button>
+<button data-sheet="impact">%<span>Tax</span></button>
+</nav>
+
+<div id="shade" class="hidden"></div>
+<section id="sheet" class="sheet hidden">
+<div class="handle"></div>
+<div class="sheet-head"><div><small id="sheetLabel">DETAIL</small><h2 id="sheetTitle">Income</h2></div><button id="close">×</button></div>
+<div id="sheetBody"></div>
+</section>
+<script src="app.js"></script>
+</body>
+</html>
