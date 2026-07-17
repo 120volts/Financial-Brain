@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12253d">
+<title>Financial Brain — Inputs Prototype</title>
+<style>
+:root{
+  --nav:#12253d;--nav2:#1b3453;--blue:#1769e0;--blue2:#eaf2ff;
+  --bg:#f4f6f8;--card:#fff;--line:#dfe4ea;--text:#18222d;--muted:#65717f;
+  --good:#19754c;--warn:#9a6811;--danger:#aa3030;--shadow:0 8px 24px rgba(18,37,61,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;display:grid;grid-template-columns:250px minmax(0,1fr)}
+.sidebar{background:linear-gradient(180deg,var(--nav),#0e1e31);color:white;padding:20px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:11px;align-items:center;padding:4px 8px 20px}
+.logo{width:38px;height:38px;border-radius:11px;background:#fff;color:var(--nav);display:grid;place-items:center;font-weight:900}
+.brand strong{display:block}.brand small{opacity:.66}
+.nav-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.55;padding:15px 12px 6px}
+.nav-btn{width:100%;border:0;color:#eaf1f8;background:transparent;text-align:left;padding:11px 12px;border-radius:10px;margin:2px 0}
+.nav-btn:hover{background:rgba(255,255,255,.08)}.nav-btn.active{background:#fff;color:var(--nav);font-weight:800}
+.sidebar-footer{margin-top:20px;padding:14px 12px;border-top:1px solid rgba(255,255,255,.13);font-size:12px;color:#b9c7d6}
+.main{min-width:0}
+.topbar{height:74px;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar h1{margin:0;font-size:22px}.topbar p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.top-actions{display:flex;gap:8px}
+.btn{border:1px solid var(--line);background:white;padding:10px 14px;border-radius:10px;font-weight:700;color:var(--text)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:white}.btn.soft{background:var(--blue2);border-color:#cfe0ff;color:#145ab8}
+.btn.danger{color:var(--danger);background:#fff5f5;border-color:#efd0d0}.btn:disabled{opacity:.45;cursor:not-allowed}
+.content{padding:24px;max-width:1200px;margin:auto}
+.page{display:none}.page.active{display:block}
+.hero{background:linear-gradient(135deg,#153354,#205c9d);color:white;border-radius:18px;padding:25px;box-shadow:var(--shadow)}
+.hero h2{font-size:28px;margin:0 0 8px}.hero p{max-width:720px;margin:0;color:#d7e8fb;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;margin-top:16px}
+.card{grid-column:span 12;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:19px;box-shadow:var(--shadow)}
+.card.half{grid-column:span 6}.card.third{grid-column:span 4}.card.two-thirds{grid-column:span 8}
+.card h2,.card h3{margin:0 0 5px}.sub{color:var(--muted);font-size:14px;margin:0 0 15px;line-height:1.45}
+.metric{font-size:31px;font-weight:850;letter-spacing:-.03em}.metric-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}
+.topic-list{display:grid;gap:9px}.topic-row{border:1px solid var(--line);border-radius:12px;background:white;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;text-align:left;width:100%}
+.topic-row:hover{border-color:#a9c8ef;background:#fbfdff}.topic-row strong{display:block}.topic-row small{display:block;color:var(--muted);margin-top:3px}.chev{font-size:24px;color:#8b97a5}
+.status{font-size:12px;padding:4px 8px;border-radius:999px;background:#eef1f4;color:#56616d;white-space:nowrap}
+.status.has{background:#e8f7ef;color:var(--good)}.status.invoice{background:#eaf2ff;color:#125cbf}
+.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+label{display:block;font-size:13px;font-weight:750;color:#354250}
+input,select,textarea{width:100%;margin-top:6px;border:1px solid #cfd6de;border-radius:10px;padding:11px 12px;background:white;color:var(--text)}
+textarea{min-height:88px;resize:vertical}.full{grid-column:1/-1}
+.save-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:15px}.saved{color:var(--good);font-size:13px;opacity:0;transition:.2s}.saved.show{opacity:1}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed #cbd4de;border-radius:13px}
+.list{display:grid;gap:10px}.record{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid var(--line);border-radius:12px}
+.record strong{display:block}.record small{color:var(--muted)}.record-actions{display:flex;gap:7px}
+.mini{border:1px solid var(--line);background:white;border-radius:8px;padding:7px 9px}
+.callout{border-left:4px solid var(--blue);background:#f1f6ff;border-radius:10px;padding:14px;color:#27496f}
+.connection{display:flex;gap:14px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:16px}
+.app-icon{width:48px;height:48px;border-radius:13px;background:#edf3fb;display:grid;place-items:center;font-size:24px}
+.connection-main{flex:1}.connection h3{margin:0}.connection p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.connection-actions{display:flex;gap:8px;flex-wrap:wrap}
+.sync-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.sync-cell{background:#f6f8fa;border-radius:11px;padding:12px}.sync-cell strong{font-size:22px;display:block}
+.detail-shell{display:none}.detail-shell.active{display:block}
+.detail-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.detail-header .left{display:flex;align-items:center;gap:10px}
+.detail-title h2{margin:0}.detail-title p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.topic-tabs{display:flex;overflow:auto;gap:7px;padding:5px 0 13px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.topic-tab{border:1px solid var(--line);background:#eef1f4;border-radius:999px;padding:9px 13px;white-space:nowrap}.topic-tab.active{background:var(--blue);border-color:var(--blue);color:white}
+.detail-nav{display:flex;justify-content:space-between;margin-top:18px}.detail-body{min-height:230px}
+.mobile-nav{display:none}
+.toast{position:fixed;right:20px;bottom:20px;background:#172433;color:white;padding:12px 16px;border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s;z-index:80}.toast.show{opacity:1;transform:none}
+@media(max-width:850px){
+ .app{display:block}.sidebar{display:none}.topbar{height:auto;min-height:67px;padding:11px 14px}.topbar h1{font-size:19px}.topbar p{display:none}.content{padding:14px 14px 86px}
+ .card.half,.card.third,.card.two-thirds{grid-column:span 12}.field-grid{grid-template-columns:1fr}.sync-summary{grid-template-columns:repeat(2,1fr)}
+ .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--line);z-index:50;padding:7px 5px calc(7px + env(safe-area-inset-bottom));justify-content:space-around}
+ .mobile-nav button{border:0;background:transparent;font-size:11px;color:#5f6c79;padding:6px 8px}.mobile-nav button.active{color:var(--blue);font-weight:850}
+ .connection{align-items:flex-start;flex-wrap:wrap}.connection-actions{width:100%}.detail-header{align-items:flex-start}.detail-header .btn{padding:8px 10px}.hero{padding:20px}.hero h2{font-size:23px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+ <aside class="sidebar">
+  <div class="brand"><div class="logo">FB</div><div><strong>Financial Brain</strong><small>Inputs prototype</small></div></div>
+  <div class="nav-label">Your financial picture</div>
+  <button class="nav-btn active" data-page="today">Today</button>
+  <button class="nav-btn" data-page="business">Your Business</button>
+  <button class="nav-btn" data-page="income">Money You Earned</button>
+  <button class="nav-btn" data-page="expenses">Things You Bought</button>
+  <button class="nav-btn" data-page="driving">Driving</button>
+  <button class="nav-btn" data-page="home">Home & Workspace</button>
+  <button class="nav-btn" data-page="equipment">Equipment & Assets</button>
+  <button class="nav-btn" data-page="people">People You Pay</button>
+  <button class="nav-btn" data-page="documents">Documents</button>
+  <div class="nav-label">System</div>
+  <button class="nav-btn" data-page="connections">Connections</button>
+  <button class="nav-btn" data-page="review">Review Your Information</button>
+  <div class="sidebar-footer">This version collects and organizes information. It does not make recommendations yet.</div>
+ </aside>
+
+ <div class="main">
+  <header class="topbar">
+   <div><h1 id="pageTitle">Today</h1><p id="pageSub">What Financial Brain currently knows.</p></div>
+   <div class="top-actions"><button class="btn soft" onclick="showPage('connections')">Connect Invoice</button></div>
+  </header>
+
+  <main class="content">
+   <section id="page-today" class="page active">
+    <div class="hero"><h2>Teach it first.</h2><p>Financial Brain is currently focused on collecting a clear picture of your business, income, purchases, driving, workspace, equipment, and people. Nothing here pressures you to make a decision.</p></div>
+    <div class="grid">
+     <article class="card third"><div class="metric-label">Information areas</div><div class="metric" id="knownAreas">0</div><p class="sub">Areas containing at least one saved detail.</p></article>
+     <article class="card third"><div class="metric-label">Invoice income</div><div class="metric" id="invoiceIncome">$0</div><p class="sub">Paid invoices detected from the bundled Invoice app.</p></article>
+     <article class="card third"><div class="metric-label">Things to review</div><div class="metric" id="reviewCount">0</div><p class="sub">Records that are missing a useful detail.</p></article>
+     <article class="card two-thirds"><div class="section-head"><div><h2>What it knows</h2><p class="sub">Browse the information areas. These are not assignments.</p></div></div><div id="knowledgeTopics" class="topic-list"></div></article>
+     <article class="card third"><h2>Invoice connection</h2><p class="sub">Invoices can feed clients, income, services, and payment events into Financial Brain.</p><div id="invoiceMini" class="callout">No invoice data detected yet.</div><button class="btn primary" style="margin-top:13px;width:100%" onclick="showPage('connections')">View connection</button></article>
+    </div>
+   </section>
+
+   <section id="page-business" class="page">
+    <div class="grid"><article class="card"><h2>Your Business</h2><p class="sub">Basic facts that give the rest of your records context.</p>
+     <div class="field-grid">
+      <label>Business name<input data-store="business.name" placeholder="Example: Lee Lightworks"></label>
+      <label>How it is organized<select data-store="business.structure"><option value="">Not entered</option><option>Sole proprietor</option><option>Single-member LLC</option><option>Partnership</option><option>S corporation</option><option>C corporation</option><option>Not sure</option></select></label>
+      <label>What the business does<input data-store="business.activity" placeholder="Film production, rentals, fabrication..."></label>
+      <label>State<input data-store="business.state" placeholder="Florida"></label>
+      <label>Started doing business<input type="date" data-store="business.started"></label>
+      <label>Accounting style<select data-store="business.accounting"><option value="">Not entered</option><option>Cash — when money is received</option><option>Accrual — when money is earned</option><option>Not sure</option></select></label>
+      <label class="full">Notes<textarea data-store="business.notes" placeholder="Anything unusual about how the business operates"></textarea></label>
+     </div><div class="save-row"><span class="saved">Saved</span><button class="btn primary" onclick="saveInputs()">Save</button></div>
+    </article></div>
+   </section>
+
+   <section id="page-income" class="page">
+    <div class="grid">
+     <article class="card half"><div class="section-head"><div><h2>Income sources</h2><p class="sub">Ways money reaches the business.</p></div><button class="btn primary" onclick="openRecord('income')">Add source</button></div><div id="incomeList" class="list"></div></article>
+     <article class="card half"><h2>Invoice information</h2><p class="sub">This area updates from the Invoice connection.</p><div id="incomeInvoiceSummary" class="empty">No invoice data detected.</div></article>
+    </div>
+   </section>
+
+   <section id="page-expenses" class="page">
+    <div class="grid">
+     <article class="card half"><div class="section-head"><div><h2>Purchases and expenses</h2><p class="sub">Record what was bought and why it was used.</p></div><button class="btn primary" onclick="openRecord('expense')">Add purchase</button></div><div id="expenseList" class="list"></div></article>
+     <article class="card half"><h2>Import later</h2><p class="sub">Bank and card imports will eventually add purchases here for review. This prototype keeps the input structure manual and visible.</p><div class="callout">A purchase record stores the date, seller, amount, purpose, payment source, receipt status, and whether it may last more than a year.</div></article>
+    </div>
+   </section>
+
+   <section id="page-driving" class="page">
+    <div class="grid">
+     <article class="card half"><div class="section-head"><div><h2>Vehicles</h2><p class="sub">Vehicles used personally, for business, or both.</p></div><button class="btn primary" onclick="openRecord('vehicle')">Add vehicle</button></div><div id="vehicleList" class="list"></div></article>
+     <article class="card half"><div class="section-head"><div><h2>Trips</h2><p class="sub">A simple driving record for now.</p></div><button class="btn primary" onclick="openRecord('trip')">Add trip</button></div><div id="tripList" class="list"></div></article>
+    </div>
+   </section>
+
+   <section id="page-home" class="page">
+    <div class="grid"><article class="card"><h2>Home & Workspace</h2><p class="sub">Describe the places where work happens. This is only input collection.</p>
+     <div class="field-grid">
+      <label>Living arrangement<select data-store="home.arrangement"><option value="">Not entered</option><option>Own</option><option>Rent</option><option>Other</option></select></label>
+      <label>Work location<select data-store="home.workLocation"><option value="">Not entered</option><option>Mainly at home</option><option>Sometimes at home</option><option>Mainly elsewhere</option><option>Changes by project</option></select></label>
+      <label>Workspace type<select data-store="home.workspace"><option value="">Not entered</option><option>Separate room</option><option>Part of a room</option><option>Detached structure</option><option>Multiple areas</option><option>No regular workspace</option></select></label>
+      <label>Approximate workspace size<input data-store="home.size" placeholder="Example: 180 sq ft"></label>
+      <label>Other work locations<input data-store="home.otherLocations" placeholder="Studio, client sites, trailer..."></label>
+      <label>Storage used for business<input data-store="home.storage" placeholder="Garage, room, shed..."></label>
+      <label class="full">Notes<textarea data-store="home.notes"></textarea></label>
+     </div><div class="save-row"><span class="saved">Saved</span><button class="btn primary" onclick="saveInputs()">Save</button></div>
+    </article></div>
+   </section>
+
+   <section id="page-equipment" class="page">
+    <div class="grid"><article class="card"><div class="section-head"><div><h2>Equipment & Assets</h2><p class="sub">Longer-lasting things the business owns or uses.</p></div><button class="btn primary" onclick="openRecord('asset')">Add equipment</button></div><div id="assetList" class="list"></div></article></div>
+   </section>
+
+   <section id="page-people" class="page">
+    <div class="grid"><article class="card"><div class="section-head"><div><h2>People You Pay</h2><p class="sub">Employees, freelancers, contractors, and other recurring payees.</p></div><button class="btn primary" onclick="openRecord('person')">Add person</button></div><div id="personList" class="list"></div></article></div>
+   </section>
+
+   <section id="page-documents" class="page">
+    <div class="grid">
+     <article class="card half"><div class="section-head"><div><h2>Documents</h2><p class="sub">Keep a list of documents Financial Brain should know exist.</p></div><button class="btn primary" onclick="openRecord('document')">Add document</button></div><div id="documentList" class="list"></div></article>
+     <article class="card half"><h2>What can belong here?</h2><div class="topic-list">
+      <div class="topic-row"><div><strong>Income documents</strong><small>1099s, payment summaries, sales records</small></div></div>
+      <div class="topic-row"><div><strong>Purchase records</strong><small>Receipts, invoices, financing agreements</small></div></div>
+      <div class="topic-row"><div><strong>Business records</strong><small>Formation, elections, licenses, insurance</small></div></div>
+      <div class="topic-row"><div><strong>Prior filings</strong><small>Returns and supporting schedules</small></div></div>
+     </div></article>
+    </div>
+   </section>
+
+   <section id="page-connections" class="page">
+    <div class="grid"><article class="card">
+     <div class="section-head"><div><h2>Connections</h2><p class="sub">Let other parts of the product teach Financial Brain automatically.</p></div></div>
+     <div class="connection">
+      <div class="app-icon">🧾</div><div class="connection-main"><h3>Invoice</h3><p>Reads clients, saved services/products, invoices, payments, and Brain events from the bundled Invoice app.</p></div>
+      <div class="connection-actions"><button class="btn" onclick="window.open('invoice/index.html','_blank')">Open Invoice</button><button class="btn primary" onclick="syncInvoice()">Sync now</button></div>
+     </div>
+     <div class="sync-summary">
+      <div class="sync-cell"><strong id="syncClients">0</strong><span>Clients</span></div>
+      <div class="sync-cell"><strong id="syncItems">0</strong><span>Items</span></div>
+      <div class="sync-cell"><strong id="syncInvoices">0</strong><span>Invoices</span></div>
+      <div class="sync-cell"><strong id="syncEvents">0</strong><span>Events</span></div>
+     </div>
+     <div class="callout" style="margin-top:16px"><strong>How the connection works in this prototype:</strong><br>Both apps use the same browser storage when opened from this package. Create or mark an invoice paid, return here, and press Sync now. Financial Brain updates its income and client information without copying the webpage itself.</div>
+    </article></div>
+   </section>
+
+   <section id="page-review" class="page">
+    <div class="grid"><article class="card"><div class="section-head"><div><h2>Review Your Information</h2><p class="sub">A plain list of what has been entered and what is still blank. No recommendations.</p></div><button class="btn" onclick="exportData()">Export JSON</button></div><div id="reviewList" class="topic-list"></div></article></div>
+   </section>
+
+   <section id="detail" class="detail-shell">
+    <div class="detail-header">
+     <div class="left"><button class="btn" id="detailBack" onclick="detailPrevious()">← Back</button><div class="detail-title"><h2 id="detailTitle">Topic</h2><p id="detailSubtitle">Browse the subject at your pace.</p></div></div>
+     <button class="btn danger" onclick="exitDetail()">✕ Exit</button>
+    </div>
+    <div id="detailTabs" class="topic-tabs"></div>
+    <article class="card"><div id="detailBody" class="detail-body"></div><div class="detail-nav"><button class="btn" onclick="detailPrevious()">Previous</button><button class="btn primary" onclick="detailNext()">Next</button></div></article>
+   </section>
+  </main>
+ </div>
+</div>
+
+<nav class="mobile-nav">
+ <button data-mobile="today" class="active" onclick="showPage('today')">Today</button>
+ <button data-mobile="income" onclick="showPage('income')">Income</button>
+ <button data-mobile="expenses" onclick="showPage('expenses')">Bought</button>
+ <button data-mobile="connections" onclick="showPage('connections')">Connect</button>
+ <button data-mobile="review" onclick="showPage('review')">Review</button>
+</nav>
+
+<div id="toast" class="toast">Saved</div>
+
+<dialog id="recordDialog" style="border:0;border-radius:16px;padding:0;max-width:560px;width:calc(100% - 28px);box-shadow:0 20px 60px rgba(0,0,0,.25)">
+ <form method="dialog" style="padding:20px">
+  <div class="section-head"><div><h2 id="recordTitle">Add record</h2><p class="sub" id="recordSub"></p></div><button class="btn" value="cancel">✕</button></div>
+  <div id="recordFields" class="field-grid"></div>
+  <div class="save-row"><button class="btn" value="cancel">Cancel</button><button type="button" class="btn primary" onclick="saveRecord()">Save</button></div>
+ </form>
+</dialog>
+
+<script>
+const PAGE_INFO={
+ today:['Today','What Financial Brain currently knows.'],business:['Your Business','Basic facts and context.'],
+ income:['Money You Earned','Income sources and invoice activity.'],expenses:['Things You Bought','Purchases, costs, and receipts.'],
+ driving:['Driving','Vehicles and business trips.'],home:['Home & Workspace','Where work and storage happen.'],
+ equipment:['Equipment & Assets','Longer-lasting business property.'],people:['People You Pay','Employees, freelancers, and contractors.'],
+ documents:['Documents','Records that support the financial picture.'],connections:['Connections','Information coming from other parts of the product.'],
+ review:['Review Your Information','Everything entered, in one place.']
+};
+const STORE_KEY='financialBrain.inputData.v04';
+let db=JSON.parse(localStorage.getItem(STORE_KEY)||'null')||{
+ business:{},home:{},income:[],expenses:[],vehicles:[],trips:[],assets:[],people:[],documents:[],
+ invoiceSnapshot:{clients:[],items:[],invoices:[],events:[],taxRecords:[],lastSync:null}
+};
+let currentPage=localStorage.getItem('financialBrain.lastPage')||'today';
+let activeRecordType=null;
+let detailState=null;
+
+const schemas={
+ income:{title:'Add income source',sub:'Describe one way the business earns money.',fields:[['name','Source name','text'],['type','Type','select','Invoices|Product sales|Rentals|Royalties|Cash sales|Other'],['frequency','How often','select','One time|Occasional|Monthly|Weekly|Varies'],['notes','Notes','textarea']]},
+ expense:{title:'Add purchase',sub:'Record what was bought and its business purpose.',fields:[['name','Seller or item','text'],['date','Date','date'],['amount','Amount','number'],['purpose','Business purpose','text'],['payment','Paid with','select','Business card|Personal card|Bank account|Cash|Financed|Other'],['receipt','Receipt','select','Have it|Missing|Not provided'],['lasting','Used for more than one year?','select','Yes|No|Not sure']]},
+ vehicle:{title:'Add vehicle',sub:'Describe how a vehicle is used.',fields:[['name','Vehicle','text'],['year','Year','number'],['use','Use','select','Business only|Personal only|Mixed use|Not sure'],['ownership','Ownership','select','Own|Lease|Borrowed|Company vehicle'],['notes','Notes','textarea']]},
+ trip:{title:'Add trip',sub:'Capture the basic facts of one drive.',fields:[['date','Date','date'],['from','From','text'],['to','To','text'],['miles','Miles','number'],['purpose','Purpose','text']]},
+ asset:{title:'Add equipment',sub:'Add a longer-lasting item used by the business.',fields:[['name','Equipment','text'],['date','Purchased','date'],['cost','Cost','number'],['use','Business use','select','All business|Mostly business|Mixed use|Not sure'],['location','Where it is kept','text'],['notes','Notes','textarea']]},
+ person:{title:'Add person',sub:'Record someone the business pays.',fields:[['name','Name','text'],['role','Role or service','text'],['relationship','Relationship','select','Employee|Freelancer|Contractor|Vendor|Other'],['payment','How paid','select','Payroll|Check|Bank transfer|Card|Cash|Other'],['taxForm','Tax form status','select','W-9 collected|W-9 needed|Employee paperwork|Not sure']]},
+ document:{title:'Add document',sub:'Record that a document exists and where it is stored.',fields:[['name','Document name','text'],['type','Document type','select','1099|Receipt|Prior tax return|Bank statement|Formation record|Insurance|Contract|Other'],['year','Year','number'],['location','Where it is stored','text'],['notes','Notes','textarea']]}
+};
+
+function persist(){localStorage.setItem(STORE_KEY,JSON.stringify(db));refreshAll()}
+function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function toast(msg='Saved'){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
+function showPage(name){
+ currentPage=name;localStorage.setItem('financialBrain.lastPage',name);
+ document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+ document.getElementById('detail').classList.remove('active');
+ document.getElementById('page-'+name).classList.add('active');
+ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
+ document.querySelectorAll('[data-mobile]').forEach(b=>b.classList.toggle('active',b.dataset.mobile===name));
+ document.getElementById('pageTitle').textContent=PAGE_INFO[name][0];document.getElementById('pageSub').textContent=PAGE_INFO[name][1];
+ refreshAll();
+}
+document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+
+function saveInputs(){
+ document.querySelectorAll('[data-store]').forEach(el=>{
+  const [group,key]=el.dataset.store.split('.');db[group]=db[group]||{};db[group][key]=el.value;
+ });
+ persist();document.querySelectorAll('.saved').forEach(x=>{x.classList.add('show');setTimeout(()=>x.classList.remove('show'),1200)});toast();
+}
+function loadInputs(){document.querySelectorAll('[data-store]').forEach(el=>{const [g,k]=el.dataset.store.split('.');el.value=(db[g]&&db[g][k])||''})}
+
+function openRecord(type){
+ activeRecordType=type;const s=schemas[type];document.getElementById('recordTitle').textContent=s.title;document.getElementById('recordSub').textContent=s.sub;
+ document.getElementById('recordFields').innerHTML=s.fields.map(f=>{
+  const [key,label,type2,opts]=f;
+  if(type2==='select')return `<label>${label}<select data-record="${key}"><option value="">Not entered</option>${opts.split('|').map(o=>`<option>${o}</option>`).join('')}</select></label>`;
+  if(type2==='textarea')return `<label class="full">${label}<textarea data-record="${key}"></textarea></label>`;
+  return `<label>${label}<input data-record="${key}" type="${type2}" ${type2==='number'?'step="0.01"':''}></label>`;
+ }).join('');
+ document.getElementById('recordDialog').showModal();
+}
+function saveRecord(){
+ const obj={id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),createdAt:new Date().toISOString()};
+ document.querySelectorAll('[data-record]').forEach(el=>obj[el.dataset.record]=el.value);
+ const map={income:'income',expense:'expenses',vehicle:'vehicles',trip:'trips',asset:'assets',person:'people',document:'documents'};
+ db[map[activeRecordType]].push(obj);document.getElementById('recordDialog').close();persist();toast('Record added');
+}
+function removeRecord(group,id){if(confirm('Delete this record?')){db[group]=db[group].filter(x=>x.id!==id);persist();toast('Record deleted')}}
+function renderRecords(group,elId,formatter){
+ const el=document.getElementById(elId);const arr=db[group]||[];
+ if(!arr.length){el.innerHTML='<div class="empty">Nothing entered yet.</div>';return}
+ el.innerHTML=arr.map(r=>`<div class="record"><div>${formatter(r)}</div><div class="record-actions"><button class="mini" onclick="removeRecord('${group}','${r.id}')">Delete</button></div></div>`).join('');
+}
+
+function readInvoice(){
+ const safe=k=>{try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}};
+ return {clients:safe('invoiceApp.clients'),items:safe('invoiceApp.items'),invoices:safe('invoiceApp.invoices'),events:safe('invoiceApp.brainEvents'),taxRecords:safe('invoiceApp.taxRecords')};
+}
+function syncInvoice(){
+ const snap=readInvoice();db.invoiceSnapshot={...snap,lastSync:new Date().toISOString()};persist();toast('Invoice synced');
+}
+function paidInvoiceIncome(){
+ return (db.invoiceSnapshot.invoices||[]).filter(i=>i.status==='paid'||i.paidAt||Number(i.paidAmount)>0).reduce((s,i)=>s+(Number(i.paidAmount)||Number(i.total)||0),0)
+}
+
+const topicDefinitions={
+ business:{title:'Your Business',tabs:['Identity','Organization','Activity','Accounting','Notes']},
+ income:{title:'Money You Earned',tabs:['Sources','Invoices','Payments','Other Income','Notes']},
+ expenses:{title:'Things You Bought',tabs:['Purchase','Purpose','Payment','Receipt','Long-term Use']},
+ driving:{title:'Driving',tabs:['Vehicle','Use','Trips','Mileage','Records']},
+ home:{title:'Home & Workspace',tabs:['Living Setup','Workspace','Size','Storage','Other Locations']},
+ equipment:{title:'Equipment & Assets',tabs:['Item','Purchase','Business Use','Location','Documents']},
+ people:{title:'People You Pay',tabs:['Person','Relationship','Payments','Paperwork','Notes']},
+ documents:{title:'Documents',tabs:['Type','Year','Source','Storage','Notes']}
+};
+function openDetail(key){
+ const d=topicDefinitions[key];detailState={key,index:0};
+ document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('detail').classList.add('active');
+ document.getElementById('pageTitle').textContent=d.title;document.getElementById('pageSub').textContent='Browse the topic without being trapped in a questionnaire.';
+ renderDetail();
+}
+function renderDetail(){
+ const d=topicDefinitions[detailState.key],i=detailState.index,t=d.tabs[i];
+ document.getElementById('detailTitle').textContent=d.title;document.getElementById('detailSubtitle').textContent='See what came before and what is ahead.';
+ document.getElementById('detailTabs').innerHTML=d.tabs.map((x,n)=>`<button class="topic-tab ${n===i?'active':''}" onclick="detailGo(${n})">${x}</button>`).join('');
+ document.getElementById('detailBack').disabled=i===0;
+ document.getElementById('detailBody').innerHTML=`<h2>${t}</h2><p class="sub">${detailCopy(detailState.key,t)}</p><div class="callout">This topic bar stays visible. You can move backward, jump across to another topic, or exit completely. Financial Brain quietly remembers the information already entered elsewhere in the app.</div>`;
+}
+function detailCopy(k,t){
+ const copies={
+  'Identity':'The name, location, and basic identity of the business.','Organization':'How the business is legally organized.','Activity':'What the business actually does and how it earns money.',
+  'Sources':'The different ways money enters the business.','Invoices':'Work billed through the Invoice app.','Payments':'When billed work actually becomes paid income.',
+  'Purchase':'What was bought and when.','Purpose':'Why the purchase was useful to the business.','Receipt':'Whether supporting proof is available.',
+  'Vehicle':'Which vehicle is being described.','Trips':'Where a drive started and ended.','Mileage':'How far the business trip was.',
+  'Workspace':'The place or area where regular work happens.','Storage':'Where business property is kept.',
+  'Item':'What the equipment is.','Business Use':'How the item is divided between business and personal use.',
+  'Person':'Who the business pays.','Paperwork':'Whether the supporting worker or vendor records have been collected.',
+  'Type':'What kind of record this is.','Storage':'Where the record can be found later.'
+ };
+ return copies[t]||`A short view of ${t.toLowerCase()} information.`;
+}
+function detailGo(i){detailState.index=i;renderDetail()}function detailPrevious(){if(detailState&&detailState.index>0){detailState.index--;renderDetail()}}
+function detailNext(){const d=topicDefinitions[detailState.key];if(detailState.index<d.tabs.length-1){detailState.index++;renderDetail()}}
+function exitDetail(){showPage(currentPage)}
+
+function refreshAll(){
+ loadInputs();
+ renderRecords('income','incomeList',r=>`<strong>${esc(r.name||'Income source')}</strong><small>${esc(r.type||'Type not entered')} · ${esc(r.frequency||'Frequency not entered')}</small>`);
+ renderRecords('expenses','expenseList',r=>`<strong>${esc(r.name||'Purchase')} ${r.amount?'— '+money(r.amount):''}</strong><small>${esc(r.date||'No date')} · ${esc(r.purpose||'Purpose not entered')}</small>`);
+ renderRecords('vehicles','vehicleList',r=>`<strong>${esc(r.name||'Vehicle')}</strong><small>${esc(r.use||'Use not entered')} · ${esc(r.ownership||'Ownership not entered')}</small>`);
+ renderRecords('trips','tripList',r=>`<strong>${esc(r.from||'?')} → ${esc(r.to||'?')}</strong><small>${esc(r.date||'No date')} · ${esc(r.miles||'?')} miles · ${esc(r.purpose||'No purpose')}</small>`);
+ renderRecords('assets','assetList',r=>`<strong>${esc(r.name||'Equipment')} ${r.cost?'— '+money(r.cost):''}</strong><small>${esc(r.use||'Use not entered')} · ${esc(r.location||'Location not entered')}</small>`);
+ renderRecords('people','personList',r=>`<strong>${esc(r.name||'Person')}</strong><small>${esc(r.relationship||'Relationship not entered')} · ${esc(r.role||'Role not entered')}</small>`);
+ renderRecords('documents','documentList',r=>`<strong>${esc(r.name||'Document')}</strong><small>${esc(r.type||'Type not entered')} · ${esc(r.year||'No year')} · ${esc(r.location||'Location not entered')}</small>`);
+
+ const s=db.invoiceSnapshot||{clients:[],items:[],invoices:[],events:[]};
+ ['syncClients','syncItems','syncInvoices','syncEvents'].forEach((id,n)=>document.getElementById(id).textContent=[s.clients,s.items,s.invoices,s.events][n]?.length||0);
+ const paid=paidInvoiceIncome();document.getElementById('invoiceIncome').textContent=money(paid);
+ document.getElementById('invoiceMini').innerHTML=s.invoices?.length?`<strong>${s.invoices.length} invoice${s.invoices.length===1?'':'s'}</strong><br>${money(paid)} received · ${s.clients.length} clients`:'No invoice data detected yet.';
+ document.getElementById('incomeInvoiceSummary').innerHTML=s.invoices?.length?`<strong>${s.invoices.length} invoices found</strong><br>${s.clients.length} clients · ${s.items.length} saved items · ${money(paid)} received`:'No invoice data detected. Open Invoice, add activity, then sync.';
+ const areaCounts=[
+  Object.values(db.business||{}).some(Boolean),db.income.length||s.invoices?.length,db.expenses.length,db.vehicles.length||db.trips.length,
+  Object.values(db.home||{}).some(Boolean),db.assets.length,db.people.length,db.documents.length
+ ].filter(Boolean).length;document.getElementById('knownAreas').textContent=areaCounts;
+ const review=(db.expenses||[]).filter(x=>!x.purpose||!x.receipt).length+(db.people||[]).filter(x=>!x.taxForm).length;
+ document.getElementById('reviewCount').textContent=review;
+ document.getElementById('knowledgeTopics').innerHTML=[
+  ['business','Your Business','Identity, organization, activity, accounting'],['income','Money You Earned','Sources, invoices, payments, other income'],
+  ['expenses','Things You Bought','Purchase, purpose, payment, receipt'],['driving','Driving','Vehicle, use, trips, mileage'],
+  ['home','Home & Workspace','Living setup, workspace, size, storage'],['equipment','Equipment & Assets','Item, purchase, use, location'],
+  ['people','People You Pay','Person, relationship, payments, paperwork'],['documents','Documents','Type, year, source, storage']
+ ].map(([k,t,su],i)=>`<button class="topic-row" onclick="openDetail('${k}')"><div><strong>${t}</strong><small>${su}</small></div><span class="status ${areaCounts>i?'has':''}">${areaCounts>i?'Has information':'Browse'}</span><span class="chev">›</span></button>`).join('');
+ renderReview();
+}
+function renderReview(){
+ const entries=[
+  ['Your Business',Object.values(db.business||{}).filter(Boolean).length+' details'],
+  ['Income sources',db.income.length+' entered'],['Invoice connection',(db.invoiceSnapshot.invoices||[]).length+' invoices'],
+  ['Purchases',db.expenses.length+' entered'],['Vehicles',db.vehicles.length+' entered'],['Trips',db.trips.length+' entered'],
+  ['Home & Workspace',Object.values(db.home||{}).filter(Boolean).length+' details'],['Equipment',db.assets.length+' entered'],
+  ['People You Pay',db.people.length+' entered'],['Documents',db.documents.length+' entered']
+ ];
+ document.getElementById('reviewList').innerHTML=entries.map(x=>`<div class="topic-row"><div><strong>${x[0]}</strong><small>${x[1]}</small></div></div>`).join('');
+}
+function exportData(){
+ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Financial-Brain-Inputs.json';a.click();URL.revokeObjectURL(a.href)
+}
+showPage(PAGE_INFO[currentPage]?currentPage:'today');
+</script>
+</body>
+</html>
