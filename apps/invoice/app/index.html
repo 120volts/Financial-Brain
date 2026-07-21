@@ -1191,10 +1191,10 @@ async function sendInvoice(){
   const includeW9=$('includeW9')?.checked;
   if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sending.');return}
   const inv=saveInvoice('sent');if(!inv)return;
-  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
-  if(result==='cancelled')return;
+  const result=await deliverInvoiceEmail(inv,includeW9?[preparedW9File]:[]);
+  if(['cancelled','native-cancelled'].includes(result))return;
   openInvoiceDetail(inv.id);
-  showToast(result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.');
+  showToast(invoiceDeliveryMessage(result));
 }
 async function shareInvoiceFromPreview(){
   const includeW9=$('includeW9')?.checked;
@@ -1222,6 +1222,68 @@ Please see the attached invoice PDF.
 
 Thank you,
 ${businessName()}`;
+}
+function invoiceEmailMessageHTML(inv){
+  normalizeInvoiceContacts(inv);
+  const workDates=serviceDateLabel(inv);
+  const rows=inv.lines.map(line=>`<tr>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb"><strong>${esc(line.name)}</strong></td>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:center">${esc(line.qty)}</td>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right">${money(line.rate)}</td>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>${money(line.qty*line.rate)}</strong></td>
+  </tr>`).join('');
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1f2937;max-width:680px;margin:0 auto">
+    <div style="border-top:6px solid #3d5bbe;padding:24px;border-radius:8px;background:#ffffff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#6b7280">INVOICE #${esc(inv.number)}</div>
+      <h1 style="font-size:26px;margin:7px 0 4px;color:#111827">${esc(inv.projectName||'Untitled project')}</h1>
+      <div style="color:#6b7280">${esc(inv.date)}${inv.dueDate?` &nbsp;·&nbsp; Due ${esc(inv.dueDate)}`:''}</div>
+      ${workDates?`<div style="color:#6b7280;margin-top:4px">${esc(workDates)}</div>`:''}
+      <table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:14px">
+        <thead><tr style="background:#f3f4f6;color:#4b5563"><th style="padding:10px 8px;text-align:left">Description</th><th style="padding:10px 8px">Qty</th><th style="padding:10px 8px;text-align:right">Rate</th><th style="padding:10px 8px;text-align:right">Amount</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="text-align:right;font-size:22px;font-weight:800;margin-top:20px">Total&nbsp;&nbsp;${money(inv.total)}</div>
+      ${inv.notes?`<div style="background:#f7f8fa;border-radius:8px;padding:14px;margin-top:22px"><div style="font-size:11px;font-weight:700;color:#6b7280">NOTES</div><div style="margin-top:6px">${esc(inv.notes)}</div></div>`:''}
+      <p style="margin-top:24px">The complete invoice PDF is attached.</p>
+      <p style="margin-top:24px">Thank you,<br><strong>${esc(businessName())}</strong></p>
+    </div>
+  </div>`;
+}
+function nativeMailPlugin(){return window.Capacitor?.Plugins?.NativeMail||null}
+function fileAsBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||'').split(',')[1]||'');
+    reader.onerror=()=>reject(reader.error||new Error('Could not read attachment.'));
+    reader.readAsDataURL(file);
+  });
+}
+async function composeNativeInvoiceMail(inv,attachments=[]){
+  const plugin=nativeMailPlugin();if(!plugin)return null;
+  const doc=buildInvoicePDF(inv);if(!doc)return 'native-failed';
+  const nativeAttachments=[{fileName:invoiceFileName(inv),mimeType:'application/pdf',base64:doc.output('datauristring').split(',')[1]}];
+  for(const file of attachments)nativeAttachments.push({fileName:file.name||'attachment.pdf',mimeType:file.type||'application/pdf',base64:await fileAsBase64(file)});
+  try{
+    const response=await plugin.compose({
+      to:inv.recipientEmails||[],cc:inv.ccEmails||[],bcc:inv.bccEmails||[],
+      subject:invoiceEmailSubject(inv),body:invoiceEmailMessageHTML(inv),isHTML:true,
+      attachments:nativeAttachments
+    });
+    return `native-${response?.result||'closed'}`;
+  }catch(error){
+    showToast(error?.message||'Native Mail is unavailable. Opening the Share Sheet instead.');
+    return null;
+  }
+}
+async function deliverInvoiceEmail(inv,attachments=[]){
+  const nativeResult=await composeNativeInvoiceMail(inv,attachments);
+  return nativeResult||shareInvoicePDF(inv,attachments);
+}
+function invoiceDeliveryMessage(result){
+  if(result==='native-sent')return 'Invoice email sent.';
+  if(result==='native-saved')return 'Invoice email saved as a draft.';
+  if(result?.startsWith('native-'))return 'Mail composer closed.';
+  return result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.';
 }
 function buildMailtoURL(inv){
   normalizeInvoiceContacts(inv);
@@ -1419,12 +1481,12 @@ function invoiceHTML(inv){
 }
 async function sendCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  const result=await shareInvoicePDF(inv);if(result==='cancelled')return;
+  const result=await deliverInvoiceEmail(inv);if(['cancelled','native-cancelled'].includes(result))return;
   const wasPreviouslySent=!!inv.sentAt,now=new Date().toISOString();
   if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
   if(inv.status==='draft')inv.status='sent';
   persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
-  openInvoiceDetail(inv.id);showToast(result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.');
+  openInvoiceDetail(inv.id);showToast(invoiceDeliveryMessage(result));
 }
 function markViewed(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;

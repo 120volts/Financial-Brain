@@ -2,6 +2,7 @@ import { readFile, access } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const html = await readFile(new URL('../app/index.html', import.meta.url), 'utf8');
+const nativeMail = await readFile(new URL('../ios/App/App/NativeMailPlugin.swift', import.meta.url), 'utf8');
 const requiredFiles = ['manifest.webmanifest','service-worker.js','icon-192.png','icon-512.png','fw9.pdf'];
 for (const file of requiredFiles) await access(new URL(`../app/${file}`, import.meta.url));
 
@@ -152,6 +153,23 @@ for (const seamlessSendFeature of [
   'await shareInvoicePDF(inv,includeW9?[preparedW9File]:[])',
   'navigator.share({files,title:invoiceEmailSubject(inv),text:invoiceEmailBody(inv)})'
 ]) assert.ok(html.includes(seamlessSendFeature), `Missing seamless PDF send behavior: ${seamlessSendFeature}`);
+
+for (const nativeMailFeature of [
+  'function invoiceEmailMessageHTML(inv)',
+  'function nativeMailPlugin()',
+  'async function composeNativeInvoiceMail(inv,attachments=[])',
+  'async function deliverInvoiceEmail(inv,attachments=[])',
+  'to:inv.recipientEmails||[],cc:inv.ccEmails||[],bcc:inv.bccEmails||[]'
+]) assert.ok(html.includes(nativeMailFeature), `Missing native Mail behavior: ${nativeMailFeature}`);
+
+for (const nativeMailBridgeFeature of [
+  'MFMailComposeViewController',
+  'setToRecipients',
+  'setCcRecipients',
+  'setBccRecipients',
+  'setMessageBody',
+  'addAttachmentData'
+]) assert.ok(nativeMail.includes(nativeMailBridgeFeature), `Missing native Mail bridge behavior: ${nativeMailBridgeFeature}`);
 
 for (const key of [
   'invoiceApp.invoices',

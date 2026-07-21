@@ -5,6 +5,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 ## [Unreleased]
 
 ### Added
+- Native iPhone Mail composer with To/CC/BCC, invoice-styled HTML, PDF attachment, and optional W-9 attachment.
 - Capacitor iOS project foundation for installing the existing Invoice app on an iPhone and adding native device features.
 - Payment-term choices in the saved-invoice date editor, including No due date, Due on receipt, Net terms, and a custom due date.
 - Per-payment “Don't add this payment to Financial Brain” control that preserves Paid status while omitting Financial Brain income and tax records.

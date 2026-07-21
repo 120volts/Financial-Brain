@@ -48,7 +48,7 @@ Then open the native project:
 npm run native:open
 ```
 
-In Xcode, select an Apple development team, connect the iPhone, select it as the run destination, and press Run. Native Mail-composer integration is the next implementation step; the generated wrapper currently retains the browser sharing workflow.
+In Xcode, select an Apple development team, connect the iPhone, select it as the run destination, and press Run. The native app uses Apple’s Mail composer to prepare To, CC, BCC, an HTML invoice body, the invoice PDF, and the optional W-9 in one editable message. Browser use retains the Share Sheet fallback.
 
 ## Structure
 
