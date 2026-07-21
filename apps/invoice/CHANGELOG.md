@@ -34,6 +34,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Invoice PDF filenames now identify the project, invoice date, and invoice number.
 - Improved Mail recipient formatting with client display names, saved-client email fallback, and compatible multi-address To/CC/BCC separators.
 - Added a reusable Projects list with automatic invoice learning, client links, search, totals, editing, archiving, and saved-project selection in the invoice editor.
+- Added explicit saved Project and Service/Product dropdowns to New Invoice, including automatic client/email and saved-rate filling.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility

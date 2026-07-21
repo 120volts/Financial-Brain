@@ -49,6 +49,8 @@ Recipient rules:
 - Projects have a reusable searchable list with optional client links, invoice counts, billed totals, editing, and archiving
 - Project names are saved automatically from invoices without duplicates, and existing invoice projects are migrated into the list
 - Choosing a saved project on an invoice can also fill its linked client and email
+- New Invoice provides visible dropdown lists for saved Projects and saved Services & Products while retaining free-text entry for new values
+- Choosing a saved service fills the first empty line or adds a new line with its saved rate
 - Notes
 - Mileage record
 - Job costs

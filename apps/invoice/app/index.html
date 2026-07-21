@@ -268,7 +268,7 @@ textarea{min-height:76px;resize:vertical}
     <label>Project name</label>
     <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
     <datalist id="projectNames"></datalist>
-    <button class="secondary full" style="margin-top:8px" onclick="openProjectPicker()">Choose saved project</button>
+    <select id="savedProjectSelect" style="margin-top:8px" onchange="chooseProjectFromSelect(this.value)"><option value="">Choose a saved project…</option></select>
     <div class="notice" style="margin-top:8px">This appears as the large title at the top of the invoice, printable version, and PDF.</div>
     <label>Client</label>
     <input id="clientName" list="clientNames" placeholder="Client or company">
@@ -321,7 +321,8 @@ textarea{min-height:76px;resize:vertical}
     </div>
 
     <label>Saved services or products</label>
-    <div id="itemSuggestions" class="suggestions"></div>
+    <select id="savedItemSelect" onchange="chooseItemFromSelect(this.value)"><option value="">Choose a service or product…</option></select>
+    <datalist id="itemNames"></datalist>
 
     <div id="invoiceItems"></div>
     <button class="secondary" style="margin-top:12px" onclick="addItemRow()">+ Add line</button>
@@ -831,7 +832,9 @@ function openItemPicker(){
 }
 function chooseSavedItem(id){
   const item=items.find(x=>x.id===id);if(!item)return;
-  addItemRow({name:item.name,qty:1,rate:item.rate});
+  const empty=[...document.querySelectorAll('#invoiceItems .item-row:not([data-mileage="true"])')].find(row=>!row.querySelector('.item-name').value.trim());
+  if(empty){empty.querySelector('.item-name').value=item.name;empty.querySelector('.item-rate').value=item.rate;recalcInvoice()}
+  else addItemRow({name:item.name,qty:1,rate:item.rate});
   closeModal();
 }
 
@@ -885,8 +888,11 @@ function learnProject(name,clientId=null,clientName=''){
   return project;
 }
 function refreshProjectLists(){
-  $('projectNames').innerHTML=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name)).map(project=>`<option value="${esc(project.name)}"></option>`).join('');
+  const active=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name));
+  $('projectNames').innerHTML=active.map(project=>`<option value="${esc(project.name)}"></option>`).join('');
+  $('savedProjectSelect').innerHTML='<option value="">Choose a saved project…</option>'+active.map(project=>`<option value="${project.id}">${esc(project.name)}${project.clientName?` — ${esc(project.clientName)}`:''}</option>`).join('');
 }
+function chooseProjectFromSelect(id){if(id)chooseSavedProject(id)}
 function openProjectPicker(){
   const active=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name));
   if(!active.length){alert('No saved projects yet. Add one from Projects or enter a project name on this invoice.');return}
@@ -936,8 +942,11 @@ function toggleArchiveProject(id){
   persist();refreshProjectLists();closeModal();renderProjects();showToast(project.archived?'Project archived.':'Project restored.');
 }
 function refreshItemSuggestions(){
-  // Suggestions intentionally disabled. Users choose from their own library.
+  const active=items.filter(item=>!item.archived).sort((a,b)=>a.name.localeCompare(b.name));
+  $('itemNames').innerHTML=active.map(item=>`<option value="${esc(item.name)}"></option>`).join('');
+  $('savedItemSelect').innerHTML='<option value="">Choose a service or product…</option>'+active.map(item=>`<option value="${item.id}">${esc(item.name)} — ${money(item.rate)}</option>`).join('');
 }
+function chooseItemFromSelect(id){if(id)chooseSavedItem(id);$('savedItemSelect').value=''}
 function addSavedItem(id){
   const x=items.find(i=>i.id===id);
   if(x)addItemRow({name:x.name,qty:1,rate:x.rate});
@@ -963,7 +972,7 @@ function learnInvoiceReferences(invoice){
   const client=name?upsertClient(name,email):null;
   learnProject(invoice.projectName,client?.id||invoice.clientId||null,name);
   learnItems(invoice.lines||[]);
-  persist();refreshProjectLists();
+  persist();refreshProjectLists();refreshItemSuggestions();
 }
 function validateInvoice(requireEmail=false){
   const name=$('clientName').value.trim(),recipientEmails=parseEmailList($('clientEmail').value),ccEmails=parseEmailList($('clientCc').value),bccEmails=parseEmailList($('clientBcc').value),lines=readInvoiceItems();
@@ -1142,7 +1151,7 @@ function saveInvoice(status){
   } else {
     invoices.unshift(inv); currentInvoiceId=inv.id;
   }
-  learnProject(inv.projectName,inv.clientId,inv.clientName);learnItems(inv.lines);persist();refreshProjectLists();
+  learnProject(inv.projectName,inv.clientId,inv.clientName);learnItems(inv.lines);persist();refreshProjectLists();refreshItemSuggestions();
   if(brainEvents.some(event=>event.invoiceId===inv.id&&event.type==='invoice_created')){
     emitBrainEvent('invoice_updated',inv,{unique:String(Date.now())});
   }else{
