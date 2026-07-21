@@ -36,6 +36,13 @@ Recipient rules:
 - Payment information
 - Archive state
 
+## In-progress invoice workspace
+
+- Every editor change is saved locally without requiring the user to press Save draft.
+- Returning to New restores the unfinished invoice, including lines, dates, days off, mileage, and job costs.
+- Preview is a persistent navigation page and can be revisited after viewing another section.
+- Saving or sending the invoice clears the temporary workspace because the invoice is then stored as a normal record.
+
 ## Core actions
 
 - Create a blank invoice

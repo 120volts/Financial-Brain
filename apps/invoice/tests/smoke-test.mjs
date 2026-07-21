@@ -18,6 +18,11 @@ for (const feature of [
   'function normalizeInvoiceContacts(',
   'function serviceDateLabel(',
   'function invoiceDueSchedule(',
+  'function invoiceWorkspaceFromForm(',
+  'function saveInvoiceWorkspace(',
+  'function restoreInvoiceWorkspace(',
+  'function renderWorkspacePreview(',
+  'function openPreviewPage(',
   'function buildMailtoURL(',
   'function dateRangeISO(',
   'function renderWorkSchedule(',
@@ -49,6 +54,15 @@ for (const optionalTermsFeature of [
   "if(value==='')return {terms:null,dueDate:''}",
   "const overdue=inv.dueDate&&"
 ]) assert.ok(html.includes(optionalTermsFeature), `Missing optional payment-terms behavior: ${optionalTermsFeature}`);
+
+for (const workspaceFeature of [
+  'invoiceApp.invoiceWorkspace',
+  'Saved automatically as you work.',
+  'Restored your automatically saved invoice.',
+  'id="navPreview"',
+  "const MAIN_TABS=['home','new','preview','clients','items','brain']",
+  "window.addEventListener('beforeunload',saveInvoiceWorkspace)"
+]) assert.ok(html.includes(workspaceFeature), `Missing autosave/preview workspace behavior: ${workspaceFeature}`);
 
 for (const locationFeature of [
   'One-way distance'

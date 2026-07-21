@@ -117,7 +117,7 @@ textarea{min-height:76px;resize:vertical}
   border-top:1px solid var(--line);backdrop-filter:blur(18px);
   padding:9px 10px calc(9px + env(safe-area-inset-bottom));
 }
-.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
 .bottom button{background:transparent;color:var(--muted);padding:10px 5px;font-size:13px}
 .bottom button.active{background:var(--ink);color:#fff}
 .item-row{
@@ -377,6 +377,7 @@ textarea{min-height:76px;resize:vertical}
     <button class="secondary big full" onclick="saveDraftAndOpen()">Save draft</button>
     <button class="primary big full" onclick="previewInvoice()">Preview</button>
   </div>
+  <div id="autosaveStatus" class="meta" style="text-align:center;margin-top:8px">Saved automatically as you work.</div>
 </section>
 
 <section id="previewPage" class="hidden">
@@ -502,6 +503,7 @@ textarea{min-height:76px;resize:vertical}
   <div class="nav">
     <button id="navInvoices" class="active" onclick="showPage('home')">Invoices</button>
     <button id="navNew" onclick="openNewInvoice()">New</button>
+    <button id="navPreview" onclick="openPreviewPage()">Preview</button>
     <button id="navClients" onclick="showPage('clients')">Clients</button>
     <button id="navItems" onclick="showPage('items')">Services & Products</button>
     <button id="navBrain" onclick="showPage('brain')">Brain</button>
@@ -537,6 +539,9 @@ let filter = 'all';
 let lastUndo = null;
 let toastTimer = null;
 let offWorkDates = new Set();
+let workspaceReady = false;
+let workspaceTimer = null;
+const WORKSPACE_KEY='invoiceApp.invoiceWorkspace';
 
 function dateRangeISO(start,end){
   if(!start||!end||end<start)return [];
@@ -645,6 +650,50 @@ function persist(){
   localStorage.setItem('invoiceApp.brainEvents',JSON.stringify(brainEvents));
   localStorage.setItem('invoiceApp.taxRecords',JSON.stringify(taxRecords));
 }
+function invoiceWorkspaceFromForm(){
+  const value=id=>$(id)?.value||'';
+  return {
+    version:1,savedAt:new Date().toISOString(),editingInvoiceId,
+    projectName:value('projectName'),clientName:value('clientName'),clientEmail:value('clientEmail'),clientCc:value('clientCc'),clientBcc:value('clientBcc'),
+    invoiceDate:value('invoiceDate'),paymentTerms:value('paymentTerms'),serviceStartDate:value('serviceStartDate'),serviceEndDate:value('serviceEndDate'),offDates:[...offWorkDates],
+    lines:[...document.querySelectorAll('#invoiceItems .item-row')].map(row=>({name:row.querySelector('.item-name').value,qty:row.querySelector('.item-qty').value,rate:row.querySelector('.item-rate').value,quantityMode:row.dataset.qtyMode||'manual',mileage:row.dataset.mileage==='true'})),
+    notes:value('invoiceNotes'),hasMileage:$('hasMileage').checked,oneWayMiles:value('mileageOneWay'),trips:value('mileageTrips'),billMileage:$('billMileage').checked,mileageBillRate:value('mileageBillRate'),mileagePurpose:value('mileagePurpose'),
+    jobCostsVisible:!$('jobCostsBox').classList.contains('hidden'),parking:value('costParking'),transit:value('costTransit'),lodging:value('costLodging'),meals:value('costMeals'),supplies:value('costSupplies'),rental:value('costRental'),costNote:value('costNote')
+  };
+}
+function saveInvoiceWorkspace(){
+  if(!workspaceReady)return;
+  try{
+    localStorage.setItem(WORKSPACE_KEY,JSON.stringify(invoiceWorkspaceFromForm()));
+    if($('autosaveStatus'))$('autosaveStatus').textContent=`Saved automatically · ${new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`;
+  }catch(e){if($('autosaveStatus'))$('autosaveStatus').textContent='Could not save automatically on this device.'}
+}
+function scheduleWorkspaceSave(){
+  if(!workspaceReady)return;
+  if($('autosaveStatus'))$('autosaveStatus').textContent='Saving…';
+  clearTimeout(workspaceTimer);workspaceTimer=setTimeout(saveInvoiceWorkspace,120);
+}
+function clearInvoiceWorkspace(){
+  clearTimeout(workspaceTimer);workspaceTimer=null;
+  try{localStorage.removeItem(WORKSPACE_KEY)}catch(e){}
+}
+function restoreInvoiceWorkspace(){
+  let workspace=null;
+  try{workspace=JSON.parse(localStorage.getItem(WORKSPACE_KEY)||'null')}catch(e){}
+  if(!workspace)return false;
+  workspaceReady=false;
+  editingInvoiceId=workspace.editingInvoiceId||null;currentInvoiceId=editingInvoiceId;
+  const set=(id,value)=>{if($(id))$(id).value=value??''};
+  ['projectName','clientName','clientEmail','clientCc','clientBcc','invoiceDate','paymentTerms','serviceStartDate','serviceEndDate'].forEach(id=>set(id,workspace[id]));
+  set('invoiceNotes',workspace.notes);offWorkDates=new Set(workspace.offDates||[]);
+  $('invoiceItems').innerHTML='';(workspace.lines?.length?workspace.lines:[{}]).forEach(line=>{addItemRow(line);const row=document.querySelector('#invoiceItems .item-row:last-child');if(line.mileage&&row)row.dataset.mileage='true'});
+  $('hasMileage').checked=!!workspace.hasMileage;$('mileageBox').classList.toggle('hidden',!workspace.hasMileage);
+  set('mileageOneWay',workspace.oneWayMiles);set('mileageTrips',workspace.trips||2);$('billMileage').checked=!!workspace.billMileage;set('mileageBillRate',workspace.mileageBillRate);set('mileagePurpose',workspace.mileagePurpose||'Travel to client work');
+  $('jobCostsBox').classList.toggle('hidden',!workspace.jobCostsVisible);
+  set('costParking',workspace.parking);set('costTransit',workspace.transit);set('costLodging',workspace.lodging);set('costMeals',workspace.meals);set('costSupplies',workspace.supplies);set('costRental',workspace.rental);set('costNote',workspace.costNote);
+  renderWorkSchedule();recalcMileage();recalcInvoice();refreshClientLists();refreshItemSuggestions();
+  workspaceReady=true;if($('autosaveStatus'))$('autosaveStatus').textContent='Restored your automatically saved invoice.';return true;
+}
 function rememberPage(name){
   try{ localStorage.setItem('invoiceApp.lastPage',name); }catch(e){}
 }
@@ -653,10 +702,10 @@ function hidePages(){
     .forEach(id=>$(id).classList.add('hidden'));
 }
 function resetNav(){
-  ['navInvoices','navNew','navClients','navItems','navBrain'].forEach(id=>$(id).classList.remove('active'));
+  ['navInvoices','navNew','navPreview','navClients','navItems','navBrain'].forEach(id=>$(id).classList.remove('active'));
 }
 
-const MAIN_TABS=['home','new','clients','items','brain'];
+const MAIN_TABS=['home','new','preview','clients','items','brain'];
 function rememberMainTab(name){
   if(MAIN_TABS.includes(name)){
     try{localStorage.setItem('invoiceApp.lastMainTab',name);}catch(e){}
@@ -666,8 +715,9 @@ function restoreMainTab(){
   let p='home';
   try{p=localStorage.getItem('invoiceApp.lastMainTab')||'home';}catch(e){}
   if(!MAIN_TABS.includes(p))p='home';
-  if(p==='new'){
+  if(p==='new'||p==='preview'){
     openNewInvoice();
+    if(p==='preview')showPage('preview');
     return;
   }
   showPage(p);
@@ -683,7 +733,8 @@ function showPage(name){
     $('newInvoicePage').classList.remove('hidden'); $('navNew').classList.add('active');
     $('pageTitle').textContent='New invoice'; $('pageSub').textContent='Who, what, and how much.';
   } else if(name==='preview'){
-    $('previewPage').classList.remove('hidden'); $('navNew').classList.add('active');
+    renderWorkspacePreview();
+    $('previewPage').classList.remove('hidden'); $('navPreview').classList.add('active');
     $('pageTitle').textContent='Preview'; $('pageSub').textContent='Check it before sending.';
   } else if(name==='detail'){
     $('detailPage').classList.remove('hidden');
@@ -704,8 +755,11 @@ function showPage(name){
   }
 }
 
-function openNewInvoice(){
+function openNewInvoice(forceNew=false){
   currentInvoiceId=null; editingInvoiceId=null;
+  if(forceNew)clearInvoiceWorkspace();
+  if(!forceNew&&restoreInvoiceWorkspace()){showPage('new');return}
+  workspaceReady=false;
   $('clientName').value=''; $('clientEmail').value='';$('clientCc').value='';$('clientBcc').value=''; $('projectName').value=''; $('invoiceDate').value=today();
   $('serviceStartDate').value='';$('serviceEndDate').value='';
   offWorkDates=new Set();renderWorkSchedule();
@@ -721,6 +775,7 @@ function openNewInvoice(){
   refreshClientLists();
   refreshItemSuggestions();
   recalcInvoice();
+  workspaceReady=true;saveInvoiceWorkspace();
   showPage('new');
 }
 
@@ -771,6 +826,7 @@ function readInvoiceItems(){
 function recalcInvoice(){
   const total=readInvoiceItems().reduce((sum,x)=>sum+x.qty*x.rate,0);
   $('invoiceTotal').textContent=money(total);
+  scheduleWorkspaceSave();
   return total;
 }
 function refreshClientLists(){
@@ -976,16 +1032,28 @@ function saveInvoice(status){
     emitBrainEvent('invoice_created',inv,{unique:'created'});
   }
   if(status==='sent')emitBrainEvent('invoice_sent',inv,{unique:'sent'});
+  clearInvoiceWorkspace();workspaceReady=false;
   return inv;
+}
+function workspacePreviewData(){
+  const date=$('invoiceDate').value||today();
+  const schedule=invoiceDueSchedule(date,$('paymentTerms').value);
+  const work=workScheduleFromForm(),lines=readInvoiceItems();
+  const existing=editingInvoiceId?invoices.find(inv=>inv.id===editingInvoiceId):null;
+  return {
+    number:existing?.number||'PREVIEW',clientName:$('clientName').value.trim()||'Client',clientEmail:parseEmailList($('clientEmail').value)[0]||'',recipientEmails:parseEmailList($('clientEmail').value),ccEmails:parseEmailList($('clientCc').value),bccEmails:parseEmailList($('clientBcc').value),
+    projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:$('serviceStartDate').value,serviceEndDate:$('serviceEndDate').value,workDates:work.workDates,offDates:work.offDates,
+    lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',mileage:readMileageRecord(),jobCosts:readJobCosts()
+  };
+}
+function renderWorkspacePreview(){$('previewCard').innerHTML=invoiceHTML(workspacePreviewData())}
+function openPreviewPage(){
+  if(!workspaceReady)openNewInvoice();
+  saveInvoiceWorkspace();showPage('preview');
 }
 function previewInvoice(){
   const v=validateInvoice(false); if(!v)return;
-  const date=$('invoiceDate').value||today();
-  const schedule=invoiceDueSchedule(date,$('paymentTerms').value);
-  $('previewCard').innerHTML=invoiceHTML({
-    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,
-    lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
-  });
+  saveInvoiceWorkspace();
   showPage('preview');
 }
 function sendInvoice(){
@@ -1034,8 +1102,8 @@ function invoiceHTML(inv){
   const mileage=inv.mileage&&inv.mileage.enabled ? `
     <div class="invoice-notes" style="margin-top:14px">
       <div class="invoice-small-label">PRIVATE JOB RECORD · MILEAGE</div>
-      <strong>${esc(inv.mileage.from||'Home')} → ${esc(inv.mileage.to||'Work')}</strong><br>
-      ${Number(inv.mileage.totalMiles||0).toFixed(1)} business miles · ${esc(inv.mileage.purpose||'Business travel')}
+      <strong>${Number(inv.mileage.totalMiles||0).toFixed(1)} business miles</strong><br>
+      ${esc(inv.mileage.purpose||'Business travel')}
     </div>` : '';
   const jc=inv.jobCosts||{};
   const costTotal=['parking','transit','lodging','meals','supplies','rental'].reduce((s,k)=>s+Number(jc[k]||0),0);
@@ -1390,7 +1458,7 @@ function newInvoiceForClient(id){
     email:client.email||''
   };
 
-  openNewInvoice();
+  openNewInvoice(true);
 
   // Fill the fields after the New Invoice page has been opened.
   requestAnimationFrame(()=>{
@@ -1646,7 +1714,7 @@ function editCurrentInvoice(){
     if(mileageRow)mileageRow.dataset.mileage='true';
   }
   renderWorkSchedule();loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
-  recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
+  recalcInvoice();refreshClientLists();refreshItemSuggestions();workspaceReady=true;saveInvoiceWorkspace();showPage('new');
 }
 
 function pdfSafe(text){return String(text||'').replace(/[^\x20-\x7E]/g,' ')}
@@ -1848,7 +1916,7 @@ function loadMileageRecord(m){
   $('mileagePurpose').value=m?.purpose||'Travel to client work';
   $('billMileage').checked=!!m?.billClient;$('mileageBillRate').value=m?.billingRate||0;recalcMileage();
 }
-function toggleJobCosts(){$('jobCostsBox').classList.toggle('hidden')}
+function toggleJobCosts(){$('jobCostsBox').classList.toggle('hidden');scheduleWorkspaceSave()}
 function readJobCosts(){
   return {
     parking:Number($('costParking').value||0),transit:Number($('costTransit').value||0),
@@ -1889,7 +1957,13 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 }
 
-window.addEventListener('DOMContentLoaded', restoreMainTab);
+window.addEventListener('DOMContentLoaded',()=>{
+  const editor=$('newInvoicePage');
+  editor.addEventListener('input',scheduleWorkspaceSave);
+  editor.addEventListener('change',scheduleWorkspaceSave);
+  restoreMainTab();
+});
+window.addEventListener('beforeunload',saveInvoiceWorkspace);
 </script>
 </body>
 </html>
