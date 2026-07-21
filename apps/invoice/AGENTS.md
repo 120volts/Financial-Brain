@@ -43,6 +43,8 @@ The v2.3.4 application uses:
 - `invoiceApp.lastPage`
 - `invoiceApp.lastMainTab`
 - `invoiceApp.businessName`
-- `invoiceApp.businessAddress`
+
+The legacy `invoiceApp.businessAddress` key may exist in older browsers, but the current
+interface does not collect or use starting or project addresses for mileage.
 
 These keys are compatibility-sensitive.

@@ -11,12 +11,12 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Multiple invoice recipients with optional CC and BCC lists.
 - Optional service/work date ranges displayed separately from invoice and due dates.
 - Project name promoted to the top of the invoice editor and retained as the document title.
-- Saved business starting address for Mileage.
 - Automatic work-day totals across a date range with exception-based days off.
 - One-click application of the calculated work-day count to the first invoice line quantity.
 
 ### Changed
 - Simplified Mileage by removing project-address entry and map routing; users enter distance directly.
+- Removed starting-address entry from Mileage; mileage now requires no addresses.
 - Payment terms are optional; invoices without terms omit the due date everywhere.
 
 ### Compatibility

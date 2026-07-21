@@ -13,10 +13,9 @@ An invoice must support at minimum:
 - Automatic inclusive work-day calculation with tap-to-toggle irregular days off
 - Optional action to apply the calculated work-day count to the first invoice line quantity
 
-Mileage location rules:
+Mileage rules:
 
-- The user can save one regular business/home starting address.
-- The user enters one-way distance, trip count, and business purpose without providing a project address.
+- The user enters one-way distance, trip count, and business purpose without providing addresses.
 
 Recipient rules:
 

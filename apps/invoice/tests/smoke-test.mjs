@@ -19,8 +19,6 @@ for (const feature of [
   'function serviceDateLabel(',
   'function invoiceDueSchedule(',
   'function buildMailtoURL(',
-  'function businessAddress(',
-  'function useBusinessAddress(',
   'function dateRangeISO(',
   'function renderWorkSchedule(',
   'function toggleWorkDate(',
@@ -51,13 +49,15 @@ for (const optionalTermsFeature of [
 ]) assert.ok(html.includes(optionalTermsFeature), `Missing optional payment-terms behavior: ${optionalTermsFeature}`);
 
 for (const locationFeature of [
-  'invoiceApp.businessAddress',
-  'Starting location',
   'One-way distance'
 ]) assert.ok(html.includes(locationFeature), `Missing project location/mileage behavior: ${locationFeature}`);
 
 for (const removedLocationFeature of [
   'projectLocation',
+  'mileageFrom',
+  'invoiceApp.businessAddress',
+  'Starting location',
+  'Set my address',
   'maps.apple.com',
   'Open driving route'
 ]) assert.ok(!html.includes(removedLocationFeature), `Removed project-address behavior still present: ${removedLocationFeature}`);

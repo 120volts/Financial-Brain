@@ -329,12 +329,6 @@ textarea{min-height:76px;resize:vertical}
 
     <label class="toggle-label"><input id="hasMileage" type="checkbox" onchange="toggleMileage()"> Track mileage (optional)</label>
     <div id="mileageBox" class="card hidden" style="box-shadow:none;margin:8px 0">
-      <label>Starting location</label>
-      <input id="mileageFrom" placeholder="Home or another starting point">
-      <div class="top-actions" style="margin-top:8px">
-        <button class="secondary" type="button" onclick="useBusinessAddress()">Use my address</button>
-        <button class="secondary" type="button" onclick="editBusinessAddress()">Set my address</button>
-      </div>
       <div class="row">
         <div><label>One-way distance</label><input id="mileageOneWay" type="number" min="0" step="0.1" placeholder="Miles" oninput="recalcMileage()"></div>
         <div><label>Trips</label><input id="mileageTrips" type="number" min="1" step="1" value="2" oninput="recalcMileage()"></div>
@@ -345,7 +339,7 @@ textarea{min-height:76px;resize:vertical}
         <div><label>Billing rate per mile</label><input id="mileageBillRate" type="number" min="0" step="0.01" value="0" oninput="syncMileageLine()"></div>
         <div><label>Purpose</label><input id="mileagePurpose" placeholder="Travel to client work"></div>
       </div>
-      <div class="notice" style="margin-top:10px">The tax record is the route, date, distance, and business purpose. Your client billing rate is separate from any tax deduction calculation.</div>
+      <div class="notice" style="margin-top:10px">The mileage record keeps the date, distance, and business purpose. Your client billing rate is separate from any tax deduction calculation.</div>
     </div>
 
     <button class="secondary full" type="button" onclick="toggleJobCosts()" style="margin-top:12px">+ Add job expenses for my records</button>
@@ -706,7 +700,7 @@ function openNewInvoice(){
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
-  $('mileageFrom').value=businessAddress()||'Home';$('mileageOneWay').value='';$('mileageTrips').value='2';
+  $('mileageOneWay').value='';$('mileageTrips').value='2';
   $('billMileage').checked=false;$('mileageBillRate').value='0';$('mileagePurpose').value='Travel to client work';$('mileageTotal').textContent='0 mi';
   $('jobCostsBox').classList.add('hidden');
   ['costParking','costTransit','costLodging','costMeals','costSupplies','costRental','costNote'].forEach(id=>$(id).value='');
@@ -1005,7 +999,6 @@ ${businessName()}`);
 }
 function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
-function businessAddress(){return localStorage.getItem('invoiceApp.businessAddress')||''}
 function serviceDateLabel(inv){
   const count=Array.isArray(inv.workDates)?inv.workDates.length:dateRangeISO(inv.serviceStartDate,inv.serviceEndDate).length;
   const suffix=count?` · ${count} work day${count===1?'':'s'}`:'';
@@ -1784,27 +1777,7 @@ function openPrintableInvoice(){
 
 function toggleMileage(){
   $('mileageBox').classList.toggle('hidden',!$('hasMileage').checked);
-  if($('hasMileage').checked){
-    if(!$('mileageFrom').value||$('mileageFrom').value==='Home')useBusinessAddress(false);
-  }
   recalcMileage();
-}
-function useBusinessAddress(showMessage=true){
-  const address=businessAddress();
-  if(!address){if(showMessage)editBusinessAddress();return}
-  $('mileageFrom').value=address;if(showMessage)showToast('Starting address added to Mileage.');
-}
-function editBusinessAddress(){
-  openModal('My starting address',`
-    <label>Business, home, or regular starting address</label>
-    <input id="modalBusinessAddress" value="${esc(businessAddress())}" placeholder="Full street address or saved place name">
-    <div class="notice" style="margin-top:8px">Stored only in this browser with your other invoice data.</div>
-    <button class="primary full" style="margin-top:14px" onclick="saveBusinessAddress()">Save address</button>`);
-}
-function saveBusinessAddress(){
-  const address=$('modalBusinessAddress').value.trim();
-  localStorage.setItem('invoiceApp.businessAddress',address);closeModal();
-  if(address){$('mileageFrom').value=address;showToast('Starting address saved.')}else showToast('Starting address cleared.');
 }
 function recalcMileage(){
   const oneWay=Number($('mileageOneWay').value||0);
@@ -1840,14 +1813,13 @@ function readMileageRecord(){
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
   return {
-    enabled:true,from:$('mileageFrom').value.trim(),
+    enabled:true,
     oneWayMiles:oneWay,trips,totalMiles:oneWay*trips,purpose:$('mileagePurpose').value.trim(),
     billClient:$('billMileage').checked,billingRate:Number($('mileageBillRate').value||0)
   };
 }
 function loadMileageRecord(m){
   const enabled=!!m?.enabled;$('hasMileage').checked=enabled;$('mileageBox').classList.toggle('hidden',!enabled);
-  $('mileageFrom').value=m?.from||businessAddress()||'Home';
   $('mileageOneWay').value=m?.oneWayMiles||'';$('mileageTrips').value=m?.trips||2;
   $('mileagePurpose').value=m?.purpose||'Travel to client work';
   $('billMileage').checked=!!m?.billClient;$('mileageBillRate').value=m?.billingRate||0;recalcMileage();
