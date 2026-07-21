@@ -1,0 +1,11 @@
+{
+  "name": "financial-brain-invoice",
+  "version": "2.4.0-foundation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node tests/smoke-test.mjs"
+  },
+  "engines": {"node": ">=18"}
+}

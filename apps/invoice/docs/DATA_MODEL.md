@@ -1,0 +1,93 @@
+# Data Model
+
+## Invoice
+
+```text
+Invoice
+  id
+  number
+  clientId / client snapshot
+  projectName
+  issueDate
+  dueDate
+  lines[]
+  mileage
+  jobCosts[]
+  notes
+  status
+  statusHistory[]
+  payments[]
+  archived
+  createdAt
+  updatedAt
+  schemaVersion
+```
+
+## InvoiceLineItem
+
+```text
+id
+savedItemId?
+description
+quantity
+unitRate
+lineTotal
+category?
+```
+
+## Payment
+
+```text
+id
+invoiceId
+amount
+paidAt
+method?
+reference?
+notes?
+```
+
+## Client
+
+```text
+id
+name
+email
+phone?
+address?
+archived
+createdAt
+updatedAt
+```
+
+## MileageEntry
+
+```text
+origin?
+destination?
+distance
+roundTrip
+rate
+amount
+businessPurpose?
+```
+
+## JobCost
+
+```text
+id
+description
+amount
+category?
+purchaseId?
+receiptId?
+```
+
+## Compatibility
+
+The first typed models must be able to deserialize existing v2.3.4 records. Unknown legacy fields should be preserved when practical rather than discarded.
+
+Legacy invoices that only contain `paidAmount` and `paidAt` are normalized into a single
+`payments[]` entry when loaded. New payments retain their own amount, received date,
+method, reference and notes. Cash-basis income records are created per payment so a
+partial payment never recognizes the invoice's unpaid balance as received income.
