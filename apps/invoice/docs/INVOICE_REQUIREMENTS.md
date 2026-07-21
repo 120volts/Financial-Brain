@@ -33,6 +33,9 @@ Recipient rules:
 - Multi-word business names use the first letter of the first and last words for the invoice mark
 - Valid clients and manually entered line items are saved to Clients and Services & Products when the invoice is previewed, saved, or sent
 - Automatically generated mileage lines do not become reusable services or products
+- Sending prepares the same styled invoice shown in Preview as a PDF for the device Share Sheet
+- A completed W-9 PDF can optionally be selected for the current send and shared beside the invoice PDF
+- W-9 files are not stored in browser persistence
 - Notes
 - Mileage record
 - Job costs

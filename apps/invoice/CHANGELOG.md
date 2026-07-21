@@ -26,6 +26,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Business name and invoice initials can now be changed directly from the Preview page.
 - Business initials now use the first letter of each end word instead of the first two letters of the name.
 - Previewing, saving, or sending an invoice now adds new clients and new manual line items to their reusable libraries without duplicates.
+- Sending now shares the styled invoice PDF, with an optional completed W-9 PDF included in supported device Share Sheets.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility

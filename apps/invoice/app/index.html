@@ -382,9 +382,14 @@ textarea{min-height:76px;resize:vertical}
 
 <section id="previewPage" class="hidden">
   <div class="card invoice-preview" id="previewCard"></div>
+  <div class="card" style="margin-top:10px">
+    <label>W-9 attachment (optional)</label>
+    <input id="w9File" type="file" accept="application/pdf,.pdf">
+    <div class="notice" style="margin-top:8px">Choose your completed W-9 PDF only when a client needs it. It will be shared with the visual invoice and is not stored by this prototype.</div>
+  </div>
   <div class="row">
     <button class="secondary big full" onclick="showPage('new')">Edit</button>
-    <button class="primary big full" onclick="sendInvoice()">Send invoice</button>
+    <button class="primary big full" onclick="sendInvoice()">Send PDF invoice</button>
   </div>
 </section>
 
@@ -1071,9 +1076,14 @@ function previewInvoice(){
   saveInvoiceWorkspace();
   showPage('preview');
 }
-function sendInvoice(){
+async function sendInvoice(){
+  const w9=$('w9File')?.files?.[0]||null;
   const inv=saveInvoice('sent');if(!inv)return;
-  openMail(inv);
+  const result=await shareInvoicePDF(inv,w9?[w9]:[]);
+  if(result==='downloaded'){
+    openMail(inv);
+    showToast(w9?'Invoice downloaded. Attach it and your selected W-9 to the email.':'Invoice downloaded. Attach it to the email.');
+  }
   openInvoiceDetail(inv.id);
 }
 function buildMailtoURL(inv){
@@ -1807,13 +1817,15 @@ function buildInvoicePDF(inv){
   doc.text('Thank you for your business.',margin,H-28);
   return doc;
 }
-async function shareInvoicePDF(inv){
+async function shareInvoicePDF(inv,attachments=[]){
   const doc=buildInvoicePDF(inv);if(!doc)return;
   const blob=doc.output('blob');const file=new File([blob],`Invoice-${inv.number}.pdf`,{type:'application/pdf'});
-  if(navigator.canShare?.({files:[file]})&&navigator.share){
-    try{await navigator.share({files:[file],title:`Invoice #${inv.number}`,text:`Invoice for ${inv.clientName}`});return}catch(e){if(e.name==='AbortError')return}
+  const files=[file,...attachments];
+  if(navigator.canShare?.({files})&&navigator.share){
+    try{await navigator.share({files,title:`Invoice #${inv.number}`,text:`Invoice for ${inv.clientName}`});return 'shared'}catch(e){if(e.name==='AbortError')return 'cancelled'}
   }
   doc.save(`Invoice-${inv.number}.pdf`);
+  return 'downloaded';
 }
 function shareCurrentPDF(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(inv)shareInvoicePDF(inv);
