@@ -1885,6 +1885,11 @@ function editCurrentInvoice(){
 }
 
 function pdfSafe(text){return String(text||'').replace(/[^\x20-\x7E]/g,' ')}
+function invoiceFileName(inv){
+  const project=String(inv.projectName||'Project').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')||'Project';
+  const date=String(inv.date||today()).replace(/[^0-9-]/g,'');
+  return `${project}-${date}-Invoice-${inv.number}.pdf`;
+}
 function buildInvoicePDF(inv){
   if(!window.jspdf?.jsPDF){alert('The PDF library did not load. Check your internet connection and try again.');return null}
   const {jsPDF}=window.jspdf;
@@ -1939,17 +1944,17 @@ function buildInvoicePDF(inv){
 }
 async function shareInvoicePDF(inv,attachments=[]){
   const doc=buildInvoicePDF(inv);if(!doc)return;
-  const blob=doc.output('blob');const file=new File([blob],`Invoice-${inv.number}.pdf`,{type:'application/pdf'});
+  const blob=doc.output('blob');const file=new File([blob],invoiceFileName(inv),{type:'application/pdf'});
   const files=[file,...attachments];
   if(navigator.canShare?.({files})&&navigator.share){
     try{await navigator.share({files,title:`Invoice #${inv.number}`,text:`Invoice for ${inv.clientName}`});return 'shared'}catch(e){if(e.name==='AbortError')return 'cancelled'}
   }
-  doc.save(`Invoice-${inv.number}.pdf`);
+  doc.save(invoiceFileName(inv));
   return 'downloaded';
 }
 function downloadInvoicePDF(inv){
   const doc=buildInvoicePDF(inv);if(!doc)return false;
-  doc.save(`Invoice-${inv.number}.pdf`);return true;
+  doc.save(invoiceFileName(inv));return true;
 }
 function shareCurrentPDF(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(inv)shareInvoicePDF(inv);

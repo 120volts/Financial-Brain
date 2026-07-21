@@ -31,6 +31,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Added a Save to Services & Products action when editing a line on an existing invoice.
 - Added a dedicated Resend PDF invoice action to saved invoice details and resend tracking for edited sent invoices.
 - Split delivery into direct Email and Share PDF / Messages actions; direct email now pre-fills recipients, CC/BCC, subject, dates, itemized charges, total, and message text.
+- Invoice PDF filenames now identify the project, invoice date, and invoice number.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility

@@ -98,6 +98,8 @@ for (const scheduleFeature of [
   'Resend by email',
   'Share PDF / Messages',
   'function downloadInvoicePDF(',
+  'function invoiceFileName(',
+  "return `${project}-${date}-Invoice-${inv.number}.pdf`",
   'Invoice details:',
   "invoice_resent:'Invoice resent'",
   "['Last resent',inv.lastSentAt]",
