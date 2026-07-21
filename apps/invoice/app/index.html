@@ -710,6 +710,30 @@ function paymentTotal(inv){
   return Number(inv.paidAmount||0);
 }
 function invoiceBalance(inv){return Math.max(0,Number(inv.total||0)-paymentTotal(inv))}
+function paymentReminderPlugin(){return window.Capacitor?.Plugins?.PaymentReminder||null}
+function paymentReminderEligible(inv){
+  return !!inv?.sentAt&&invoiceBalance(inv)>0.001&&!['paid','cancelled'].includes(inv.status);
+}
+async function syncPaymentReminder(inv,{replace=false,announce=false}={}){
+  const plugin=paymentReminderPlugin();if(!plugin||!inv?.id)return;
+  try{
+    if(!paymentReminderEligible(inv)){
+      await plugin.cancel({id:String(inv.id)});return;
+    }
+    const result=await plugin.schedule({
+      id:String(inv.id),invoiceId:String(inv.id),replace,
+      title:`Invoice #${inv.number} is still unpaid`,
+      body:`${inv.clientName} · ${inv.projectName||'Untitled project'} · ${money(invoiceBalance(inv))} remaining`
+    });
+    if(announce){
+      if(result?.permission==='denied')showToast('Invoice saved. Enable notifications in iPhone Settings for payment reminders.');
+      else showToast('Payment reminder set for every 10 days until paid.');
+    }
+  }catch(error){
+    if(announce)showToast('Invoice saved, but the payment reminder could not be scheduled.');
+  }
+}
+function syncAllPaymentReminders(){invoices.forEach(inv=>{void syncPaymentReminder(inv)})}
 function parseEmailList(value){
   return [...new Set(String(value||'').split(/[\n,;]+/).map(email=>email.trim()).filter(Boolean))];
 }
@@ -1280,6 +1304,7 @@ async function sendInvoice(){
   const inv=saveInvoice('sent');if(!inv)return;
   const result=await deliverInvoiceEmail(inv,includeW9?[preparedW9File]:[]);
   if(['cancelled','native-cancelled'].includes(result))return;
+  void syncPaymentReminder(inv,{announce:true});
   openInvoiceDetail(inv.id);
   showToast(invoiceDeliveryMessage(result));
 }
@@ -1573,6 +1598,7 @@ async function sendCurrentInvoice(){
   if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
   if(inv.status==='draft')inv.status='sent';
   persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
+  void syncPaymentReminder(inv,{replace:wasPreviouslySent,announce:!wasPreviouslySent});
   openInvoiceDetail(inv.id);showToast(invoiceDeliveryMessage(result));
 }
 function markViewed(){
@@ -1605,6 +1631,7 @@ function addPayment(inv,payment){
   if(invoiceBalance(inv)<=0.001){inv.status='paid';inv.paidAt=saved.paidAt}
   else {inv.status='partial';inv.paidAt=null}
   persist();
+  void syncPaymentReminder(inv,{replace:invoiceBalance(inv)>0.001});
   if(!saved.excludeFromBrain){
     emitBrainEvent('payment_received',inv,{unique:saved.id,amount:saved.amount,paymentId:saved.id});
     createPaymentTaxRecord(inv,saved);
@@ -1648,6 +1675,7 @@ function deleteCurrentInvoice(){
   const removed=JSON.parse(JSON.stringify(inv));
   const removedEvents=brainEvents.filter(event=>event.invoiceId===currentInvoiceId);
   const removedTax=taxRecords.filter(record=>record.invoiceId===currentInvoiceId);
+  void syncPaymentReminder({...inv,status:'cancelled'});
   invoices.splice(index,1);
   brainEvents=brainEvents.filter(event=>event.invoiceId!==currentInvoiceId);
   removePaidTaxRecord(currentInvoiceId);
@@ -2431,6 +2459,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   editor.addEventListener('input',scheduleWorkspaceSave);
   editor.addEventListener('change',scheduleWorkspaceSave);
   restoreMainTab();
+  setTimeout(syncAllPaymentReminders,600);
 });
 window.addEventListener('beforeunload',saveInvoiceWorkspace);
 </script>
