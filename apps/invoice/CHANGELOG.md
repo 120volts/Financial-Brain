@@ -20,6 +20,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Persistent Preview navigation for the current unfinished invoice.
 
 ### Changed
+- Email and resend now pass the generated invoice PDF directly to the device Share Sheet instead of downloading it before opening Mail; supported Mail apps also receive the invoice subject and message text.
 - Simplified Mileage by removing project-address entry and map routing; users enter distance directly.
 - Removed starting-address entry from Mileage; mileage now requires no addresses.
 - Payment terms are optional; invoices without terms omit the due date everywhere.

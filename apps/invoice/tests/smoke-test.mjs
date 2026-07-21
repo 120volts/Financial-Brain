@@ -146,6 +146,13 @@ for (const dueDateFeature of [
   'function syncModalDueDate()'
 ]) assert.ok(html.includes(dueDateFeature), `Missing editable due-date behavior: ${dueDateFeature}`);
 
+for (const seamlessSendFeature of [
+  'function invoiceEmailSubject(inv)',
+  'function invoiceEmailBody(inv)',
+  'await shareInvoicePDF(inv,includeW9?[preparedW9File]:[])',
+  'navigator.share({files,title:invoiceEmailSubject(inv),text:invoiceEmailBody(inv)})'
+]) assert.ok(html.includes(seamlessSendFeature), `Missing seamless PDF send behavior: ${seamlessSendFeature}`);
+
 for (const key of [
   'invoiceApp.invoices',
   'invoiceApp.clients',
