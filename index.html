@@ -515,8 +515,6 @@ textarea{min-height:76px;resize:vertical}
     </div>
     <input id="financialBrainBackupInput" type="file" accept=".json,application/json" class="hidden" onchange="importFinancialBrainBackup(event)">
     <div id="backupStatus" class="meta" style="margin-top:10px">No backup transferred during this session.</div>
-    <button class="danger full" style="margin-top:12px" onclick="eraseLocalFinancialBrainData()">Erase this device only</button>
-    <div class="meta" style="margin-top:8px">This removes Financial Brain data from this device. It does not delete a backup already saved in iCloud Drive.</div>
   </div>
 
   <div class="section-title">Recent events</div>
@@ -661,17 +659,6 @@ async function importFinancialBrainBackup(event){
     showToast('Backup imported. Reloading Financial Brain…');
     setTimeout(()=>location.reload(),700);
   }catch(error){alert(error?.message||'The backup could not be imported.');}
-}
-function eraseLocalFinancialBrainData(){
-  const confirmation=prompt('This erases Financial Brain data only from this device. Your iCloud Drive backup will remain.\n\nType ERASE to continue.');
-  if(confirmation!=='ERASE')return;
-  const keys=[];
-  for(let index=0;index<localStorage.length;index++){
-    const key=localStorage.key(index);if(key?.startsWith('invoiceApp.'))keys.push(key);
-  }
-  keys.forEach(key=>localStorage.removeItem(key));
-  alert('Local Financial Brain data was erased. Your iCloud Drive backup was not changed.');
-  location.reload();
 }
 
 function dateRangeISO(start,end){
