@@ -5,7 +5,18 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node tests/smoke-test.mjs"
+    "test": "node tests/smoke-test.mjs",
+    "native:sync": "npx cap sync ios",
+    "native:open": "npx cap open ios"
   },
-  "engines": {"node": ">=18"}
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.2"
+  }
 }

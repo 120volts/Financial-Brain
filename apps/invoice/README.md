@@ -32,10 +32,29 @@ Open `http://localhost:4173`.
 npm test
 ```
 
+## iPhone application
+
+The repository includes a Capacitor iOS wrapper in `ios/`. Building it requires the full Xcode application on a compatible version of macOS.
+
+After changing files in `app/`, synchronize them into the iPhone project:
+
+```bash
+npm run native:sync
+```
+
+Then open the native project:
+
+```bash
+npm run native:open
+```
+
+In Xcode, select an Apple development team, connect the iPhone, select it as the run destination, and press Run. Native Mail-composer integration is the next implementation step; the generated wrapper currently retains the browser sharing workflow.
+
 ## Structure
 
 ```text
 app/                 Current runnable Invoice application
+ios/                 Native iPhone application wrapper
 legacy/v2.3.4/       Untouched behavior baseline
 docs/                Product and engineering specification
 scripts/              Development utilities
