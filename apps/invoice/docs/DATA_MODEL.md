@@ -11,6 +11,7 @@ Invoice
   ccEmails[]
   bccEmails[]
   projectName
+  projectLocation?
   issueDate
   dueDate
   serviceStartDate?
@@ -100,3 +101,7 @@ partial payment never recognizes the invoice's unpaid balance as received income
 Legacy `clientEmail` values are normalized into `recipientEmails[]`. `clientEmail` remains
 the primary recipient for compatibility with existing clients and invoice records. CC and
 BCC recipients are invoice-specific and are not printed as BCC on client documents.
+
+`projectLocation` accepts either a postal address or recognizable place name. The saved
+business starting address uses the compatibility-safe `invoiceApp.businessAddress`
+localStorage key. Mileage snapshots retain the actual origin and destination used.

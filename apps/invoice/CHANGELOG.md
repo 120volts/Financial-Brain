@@ -11,6 +11,8 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Multiple invoice recipients with optional CC and BCC lists.
 - Optional service/work date ranges displayed separately from invoice and due dates.
 - Project name promoted to the top of the invoice editor and retained as the document title.
+- Saved business starting address and reusable project address/place-name fields for Mileage.
+- One-click Apple Maps driving route from the Mileage section.
 
 ### Compatibility
 - Existing invoices with legacy `paidAmount` data are migrated in memory to `payments[]` without changing storage keys.

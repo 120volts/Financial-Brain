@@ -43,5 +43,6 @@ The v2.3.4 application uses:
 - `invoiceApp.lastPage`
 - `invoiceApp.lastMainTab`
 - `invoiceApp.businessName`
+- `invoiceApp.businessAddress`
 
 These keys are compatibility-sensitive.

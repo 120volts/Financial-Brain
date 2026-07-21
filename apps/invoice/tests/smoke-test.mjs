@@ -18,6 +18,10 @@ for (const feature of [
   'function normalizeInvoiceContacts(',
   'function serviceDateLabel(',
   'function buildMailtoURL(',
+  'function businessAddress(',
+  'function useBusinessAddress(',
+  'function useProjectLocation(',
+  'function openDrivingRoute(',
   'function duplicateCurrentInvoice(',
   'function buildInvoicePDF(',
   'function renderClients(',
@@ -35,6 +39,13 @@ for (const deliveryFeature of [
   "query.push(`cc=",
   "query.push(`bcc="
 ]) assert.ok(html.includes(deliveryFeature), `Missing invoice delivery/date behavior: ${deliveryFeature}`);
+
+for (const locationFeature of [
+  'invoiceApp.businessAddress',
+  'projectLocation',
+  'maps.apple.com',
+  'Automatic distance entry will require a connected routing provider'
+]) assert.ok(html.includes(locationFeature), `Missing project location/mileage behavior: ${locationFeature}`);
 
 for (const paymentFeature of [
   'payments:[]',
