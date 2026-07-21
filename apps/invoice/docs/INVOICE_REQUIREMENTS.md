@@ -28,6 +28,7 @@ Recipient rules:
 - BCC recipients are used for email delivery but never displayed on the invoice or PDF.
 - Selecting “No due date” omits payment terms from the invoice, email, printable view, and PDF.
 - Line items with description, quantity and rate
+- Quantity arrow controls move in whole numbers, while manually entered decimal quantities remain supported in invoice calculations
 - Notes
 - Mileage record
 - Job costs

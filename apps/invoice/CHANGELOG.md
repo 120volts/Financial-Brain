@@ -22,6 +22,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Removed starting-address entry from Mileage; mileage now requires no addresses.
 - Payment terms are optional; invoices without terms omit the due date everywhere.
 - Automatic workday and mileage quantities stop changing after the user manually edits them.
+- Quantity arrow controls now move by whole numbers while typed decimal quantities remain supported.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility

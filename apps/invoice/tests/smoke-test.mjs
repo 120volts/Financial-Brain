@@ -83,6 +83,8 @@ for (const scheduleFeature of [
   'offDates',
   'All dates in the range count as workdays automatically',
   'Resume automatic work-day quantity',
+  'class="item-qty" type="number" min="0" step="1"',
+  'id="modalLineQty" type="number" min="0" step="1"',
   'Trips per workday',
   "row.dataset.qtyMode==='manual'",
   'oneWay*trips*workDays'

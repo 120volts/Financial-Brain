@@ -803,7 +803,7 @@ function addItemRow(prefill={}){
   row.dataset.qtyMode=prefill.quantityMode||(Object.prototype.hasOwnProperty.call(prefill,'qty')?'manual':'auto');
   row.innerHTML=`
     <div><label>What did you do or sell?</label><input class="item-name" list="itemNames" value="${esc(prefill.name||'')}" placeholder="Service or product"></div>
-    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="0.25" value="${prefill.qty ?? 1}" oninput="markQuantityOverride(this);recalcInvoice()"></div>
+    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="1" value="${prefill.qty ?? 1}" oninput="markQuantityOverride(this);recalcInvoice()"></div>
     <div><label>Rate</label><input class="item-rate" type="number" min="0" step="0.01" value="${prefill.rate ?? ''}" oninput="recalcInvoice()"></div>
     <button class="remove" onclick="this.parentElement.remove();recalcInvoice()">×</button>`;
   const nameInput=row.querySelector('.item-name');
@@ -1659,7 +1659,7 @@ function editInvoiceLine(invoiceId,index){
   const line=inv.lines[index];
   openModal('Edit invoice line',`
     <label>Service or product</label><input id="modalLineName" value="${esc(line.name)}">
-    <div class="row"><div><label>Quantity</label><input id="modalLineQty" type="number" min="0" step="0.25" value="${line.qty}"></div>
+    <div class="row"><div><label>Quantity</label><input id="modalLineQty" type="number" min="0" step="1" value="${line.qty}"></div>
     <div><label>Rate</label><input id="modalLineRate" type="number" min="0" step="0.01" value="${line.rate}"></div></div>
     <button class="primary full" style="margin-top:14px" onclick="saveInvoiceLine('${invoiceId}',${index})">Save line</button>`);
 }
