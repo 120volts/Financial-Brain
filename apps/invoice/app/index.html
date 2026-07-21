@@ -416,6 +416,7 @@ textarea{min-height:76px;resize:vertical}
     <button class="primary big full" id="recordPaymentButton" onclick="togglePaymentEditor()">Record payment</button>
   </div>
   <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend by email</button>
+  <button class="secondary big full" id="paymentReminderEmailButton" style="margin-top:10px" onclick="sendPaymentReminderEmail()">Send payment reminder email</button>
   <div class="card" style="margin:10px 0;box-shadow:none">
     <label class="toggle-label"><input id="detailPaymentReminder" type="checkbox" onchange="toggleCurrentPaymentReminder(this.checked)"> Remind me until paid</label>
     <label>Reminder frequency</label>
@@ -1383,6 +1384,21 @@ function invoiceEmailMessageHTML(inv){
     </div>
   </div>`;
 }
+function paymentReminderEmailSubject(inv){return `Payment reminder — ${inv.projectName||'Project'} invoice #${inv.number}`}
+function paymentReminderEmailMessageHTML(inv){
+  normalizeInvoiceContacts(inv);
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1f2937;max-width:680px;margin:0 auto">
+    <div style="border-top:6px solid #3d5bbe;padding:24px;border-radius:8px;background:#ffffff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#6b7280">PAYMENT REMINDER · INVOICE #${esc(inv.number)}</div>
+      <h1 style="font-size:26px;margin:7px 0 4px;color:#111827">${esc(inv.projectName||'Untitled project')}</h1>
+      <p style="margin-top:24px">Hi ${esc(inv.clientName)},</p>
+      <p>This is a friendly reminder that invoice #${esc(inv.number)} has a remaining balance of <strong>${money(invoiceBalance(inv))}</strong>.</p>
+      ${inv.dueDate?`<p>Due date: <strong>${esc(inv.dueDate)}</strong></p>`:''}
+      <p>The invoice PDF is attached for your convenience.</p>
+      <p style="margin-top:24px">Thank you,<br><strong>${esc(businessName())}</strong></p>
+    </div>
+  </div>`;
+}
 function nativeMailPlugin(){return window.Capacitor?.Plugins?.NativeMail||null}
 function fileAsBase64(file){
   return new Promise((resolve,reject)=>{
@@ -1392,7 +1408,7 @@ function fileAsBase64(file){
     reader.readAsDataURL(file);
   });
 }
-async function composeNativeInvoiceMail(inv,attachments=[]){
+async function composeNativeInvoiceMail(inv,attachments=[],message={}){
   const plugin=nativeMailPlugin();if(!plugin)return null;
   const doc=buildInvoicePDF(inv);if(!doc)return 'native-failed';
   const nativeAttachments=[{fileName:invoiceFileName(inv),mimeType:'application/pdf',base64:doc.output('datauristring').split(',')[1]}];
@@ -1400,7 +1416,7 @@ async function composeNativeInvoiceMail(inv,attachments=[]){
   try{
     const response=await plugin.compose({
       to:inv.recipientEmails||[],cc:inv.ccEmails||[],bcc:inv.bccEmails||[],
-      subject:invoiceEmailSubject(inv),body:invoiceEmailMessageHTML(inv),isHTML:true,
+      subject:message.subject||invoiceEmailSubject(inv),body:message.body||invoiceEmailMessageHTML(inv),isHTML:true,
       attachments:nativeAttachments
     });
     return `native-${response?.result||'closed'}`;
@@ -1412,6 +1428,21 @@ async function composeNativeInvoiceMail(inv,attachments=[]){
 async function deliverInvoiceEmail(inv,attachments=[]){
   const nativeResult=await composeNativeInvoiceMail(inv,attachments);
   return nativeResult||shareInvoicePDF(inv,attachments);
+}
+async function sendPaymentReminderEmail(){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  if(invoiceBalance(inv)<=0){showToast('This invoice is already paid in full.');return}
+  normalizeInvoiceContacts(inv);
+  if(!inv.recipientEmails.length){showToast('Add a client email before sending a payment reminder.');return}
+  const result=await composeNativeInvoiceMail(inv,[],{subject:paymentReminderEmailSubject(inv),body:paymentReminderEmailMessageHTML(inv)});
+  if(result){
+    if(result==='native-sent')showToast('Payment reminder email sent.');
+    else if(result==='native-saved')showToast('Payment reminder saved as a draft.');
+    return;
+  }
+  const subject=encodeURIComponent(paymentReminderEmailSubject(inv));
+  const text=encodeURIComponent(`Hi ${inv.clientName},\n\nThis is a friendly reminder that invoice #${inv.number} for ${inv.projectName||'the project'} has a remaining balance of ${money(invoiceBalance(inv))}.${inv.dueDate?`\n\nDue date: ${inv.dueDate}`:''}\n\nThank you,\n${businessName()}`);
+  location.href=`mailto:${encodeMailboxes(inv.recipientEmails,inv.clientName)}?subject=${subject}&body=${text}${inv.ccEmails.length?`&cc=${encodeMailboxes(inv.ccEmails)}`:''}${inv.bccEmails.length?`&bcc=${encodeMailboxes(inv.bccEmails)}`:''}`;
 }
 function invoiceDeliveryMessage(result){
   if(result==='native-sent')return 'Invoice email sent.';
@@ -1827,6 +1858,7 @@ function openInvoiceDetail(id){
   $('recordPaymentButton').textContent=invoiceBalance(inv)>0?'Record payment':'Paid in full';
   $('recordPaymentButton').disabled=invoiceBalance(inv)<=0;
   $('resendInvoiceButton').textContent=inv.sentAt?'Resend by email':'Send by email';
+  $('paymentReminderEmailButton').style.display=inv.sentAt&&invoiceBalance(inv)>0?'block':'none';
   $('detailPaymentReminder').checked=!!inv.paymentReminderEnabled;
   $('detailPaymentReminder').disabled=invoiceBalance(inv)<=0||inv.status==='cancelled';
   $('detailPaymentReminderDays').value=String(inv.paymentReminderDays||7);

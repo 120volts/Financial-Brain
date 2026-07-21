@@ -157,10 +157,17 @@ for (const seamlessSendFeature of [
 for (const nativeMailFeature of [
   'function invoiceEmailMessageHTML(inv)',
   'function nativeMailPlugin()',
-  'async function composeNativeInvoiceMail(inv,attachments=[])',
+  'async function composeNativeInvoiceMail(inv,attachments=[],message={})',
   'async function deliverInvoiceEmail(inv,attachments=[])',
   'to:inv.recipientEmails||[],cc:inv.ccEmails||[],bcc:inv.bccEmails||[]'
 ]) assert.ok(html.includes(nativeMailFeature), `Missing native Mail behavior: ${nativeMailFeature}`);
+
+for (const paymentReminderMailFeature of [
+  'function paymentReminderEmailSubject(inv)',
+  'function paymentReminderEmailMessageHTML(inv)',
+  'async function sendPaymentReminderEmail()',
+  'Send payment reminder email'
+]) assert.ok(html.includes(paymentReminderMailFeature), `Missing payment reminder email behavior: ${paymentReminderMailFeature}`);
 
 for (const nativeMailBridgeFeature of [
   'MFMailComposeViewController',
