@@ -1795,7 +1795,15 @@ function editInvoiceLine(invoiceId,index){
     <label>Service or product</label><input id="modalLineName" value="${esc(line.name)}">
     <div class="row"><div><label>Quantity</label><input id="modalLineQty" type="number" min="0" step="1" value="${line.qty}"></div>
     <div><label>Rate</label><input id="modalLineRate" type="number" min="0" step="0.01" value="${line.rate}"></div></div>
-    <button class="primary full" style="margin-top:14px" onclick="saveInvoiceLine('${invoiceId}',${index})">Save line</button>`);
+    <div class="row" style="margin-top:14px"><button class="secondary full" onclick="saveInvoiceLineToLibrary()">Save to Services & Products</button><button class="primary full" onclick="saveInvoiceLine('${invoiceId}',${index})">Save line</button></div>`);
+}
+function saveInvoiceLineToLibrary(){
+  const name=$('modalLineName').value.trim(),rate=Number($('modalLineRate').value||0);
+  if(!name){alert('Add a service or product name first.');return}
+  const existing=items.find(item=>item.name.trim().toLowerCase()===name.toLowerCase());
+  if(existing){existing.name=name;existing.rate=rate;existing.archived=false}
+  else items.push({id:uid(),name,rate,archived:false,createdAt:new Date().toISOString()});
+  persist();renderItems();refreshItemSuggestions();showToast(existing?'Saved item and updated its rate.':'Saved item to Services & Products.');
 }
 function saveInvoiceLine(invoiceId,index){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv||!inv.lines[index])return;

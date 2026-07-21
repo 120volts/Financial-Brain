@@ -28,6 +28,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Previewing, saving, or sending an invoice now adds new clients and new manual line items to their reusable libraries without duplicates.
 - Sending now shares the styled invoice PDF, with an optional completed W-9 PDF included in supported device Share Sheets.
 - Added a reusable W-9 editor that fills the official IRS March 2024 form; reusable details stay local while TIN and signature data are never persisted.
+- Added a Save to Services & Products action when editing a line on an existing invoice.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility

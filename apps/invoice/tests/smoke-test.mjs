@@ -94,6 +94,8 @@ for (const scheduleFeature of [
   'function openW9Editor()',
   'async function prepareW9()',
   'function downloadPreparedW9()',
+  'function saveInvoiceLineToLibrary()',
+  'Save to Services & Products',
   "const W9_PROFILE_KEY='invoiceApp.w9Profile'",
   'fw9.pdf',
   'Send PDF invoice',

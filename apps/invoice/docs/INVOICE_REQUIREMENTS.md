@@ -33,6 +33,7 @@ Recipient rules:
 - Multi-word business names use the first letter of the first and last words for the invoice mark
 - Valid clients and manually entered line items are saved to Clients and Services & Products when the invoice is previewed, saved, or sent
 - Automatically generated mileage lines do not become reusable services or products
+- Editing a saved invoice line provides an explicit action to save or update that line in Services & Products
 - Sending prepares the same styled invoice shown in Preview as a PDF for the device Share Sheet
 - The app stores reusable W-9 identity, classification, and address details locally and can update them at any time
 - The app fills the current official IRS W-9 template and can share it beside the invoice PDF
