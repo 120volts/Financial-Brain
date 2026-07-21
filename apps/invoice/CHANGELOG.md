@@ -8,9 +8,12 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Partial-payment recording with received date, method, reference and notes.
 - Payment history, paid total and remaining balance on invoice details.
 - Per-payment cash-basis income events and tax records.
+- Multiple invoice recipients with optional CC and BCC lists.
+- Optional service/work date ranges displayed separately from invoice and due dates.
 
 ### Compatibility
 - Existing invoices with legacy `paidAmount` data are migrated in memory to `payments[]` without changing storage keys.
+- Existing `clientEmail` values remain the primary recipient and are migrated in memory to `recipientEmails[]`.
 
 ## [2.4.0-foundation] - 2026-07-18
 

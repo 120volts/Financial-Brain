@@ -6,9 +6,17 @@ An invoice must support at minimum:
 
 - Stable internal ID
 - Human-readable invoice number
-- Client reference and client contact details
+- Client reference, multiple recipient emails, and optional CC/BCC details
 - Project name
 - Issue date and due date
+- Optional service/work start and end dates
+
+Recipient rules:
+
+- “Send to,” CC and BCC accept comma-, semicolon- or line-separated addresses.
+- At least one “Send to” address is required before sending.
+- Invalid addresses and reversed work date ranges must be rejected.
+- BCC recipients are used for email delivery but never displayed on the invoice or PDF.
 - Line items with description, quantity and rate
 - Notes
 - Mileage record

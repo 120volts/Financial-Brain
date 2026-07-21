@@ -7,9 +7,14 @@ Invoice
   id
   number
   clientId / client snapshot
+  recipientEmails[]
+  ccEmails[]
+  bccEmails[]
   projectName
   issueDate
   dueDate
+  serviceStartDate?
+  serviceEndDate?
   lines[]
   mileage
   jobCosts[]
@@ -91,3 +96,7 @@ Legacy invoices that only contain `paidAmount` and `paidAt` are normalized into 
 `payments[]` entry when loaded. New payments retain their own amount, received date,
 method, reference and notes. Cash-basis income records are created per payment so a
 partial payment never recognizes the invoice's unpaid balance as received income.
+
+Legacy `clientEmail` values are normalized into `recipientEmails[]`. `clientEmail` remains
+the primary recipient for compatibility with existing clients and invoice records. CC and
+BCC recipients are invoice-specific and are not printed as BCC on client documents.

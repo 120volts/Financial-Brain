@@ -268,9 +268,14 @@ textarea{min-height:76px;resize:vertical}
     <div id="selectedClientHint" class="meta" style="margin-top:5px"></div>
     <datalist id="clientNames"></datalist>
 
-    <label>Email</label>
-    <input id="clientEmail" type="email" list="clientEmails" placeholder="billing@company.com">
+    <label>Send to</label>
+    <textarea id="clientEmail" rows="2" list="clientEmails" placeholder="billing@company.com, producer@company.com"></textarea>
     <datalist id="clientEmails"></datalist>
+
+    <div class="row">
+      <div><label>CC (optional)</label><textarea id="clientCc" rows="2" placeholder="manager@company.com"></textarea></div>
+      <div><label>BCC (optional)</label><textarea id="clientBcc" rows="2" placeholder="records@mybusiness.com"></textarea></div>
+    </div>
 
     <label>Invoice / project name</label>
     <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
@@ -301,6 +306,11 @@ textarea{min-height:76px;resize:vertical}
         </select>
       </div>
     </div>
+    <div class="row">
+      <div><label>Work starts (optional)</label><input id="serviceStartDate" type="date"></div>
+      <div><label>Work ends (optional)</label><input id="serviceEndDate" type="date"></div>
+    </div>
+    <div class="notice" style="margin-top:8px">Use the work date range for a shoot, billing period, rental, or multi-day project. Invoice and due dates remain separate.</div>
 
     <label>Saved services or products</label>
     <div id="itemSuggestions" class="suggestions"></div>
@@ -520,7 +530,21 @@ function paymentTotal(inv){
   return Number(inv.paidAmount||0);
 }
 function invoiceBalance(inv){return Math.max(0,Number(inv.total||0)-paymentTotal(inv))}
+function parseEmailList(value){
+  return [...new Set(String(value||'').split(/[\n,;]+/).map(email=>email.trim()).filter(Boolean))];
+}
+function validEmail(email){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
+function normalizeInvoiceContacts(inv){
+  inv.recipientEmails=parseEmailList(inv.recipientEmails?.length?inv.recipientEmails:inv.clientEmail);
+  inv.ccEmails=parseEmailList(inv.ccEmails);
+  inv.bccEmails=parseEmailList(inv.bccEmails);
+  inv.clientEmail=inv.recipientEmails[0]||inv.clientEmail||'';
+  inv.serviceStartDate=inv.serviceStartDate||'';
+  inv.serviceEndDate=inv.serviceEndDate||'';
+  return inv;
+}
 function normalizeInvoicePayments(inv){
+  normalizeInvoiceContacts(inv);
   if(!Array.isArray(inv.payments)){
     const legacyAmount=Math.min(Number(inv.total||0),Number(inv.paidAmount||0));
     inv.payments=legacyAmount>0?[{
@@ -621,7 +645,8 @@ function showPage(name){
 
 function openNewInvoice(){
   currentInvoiceId=null; editingInvoiceId=null;
-  $('clientName').value=''; $('clientEmail').value=''; $('projectName').value=''; $('invoiceDate').value=today();
+  $('clientName').value=''; $('clientEmail').value='';$('clientCc').value='';$('clientBcc').value=''; $('projectName').value=''; $('invoiceDate').value=today();
+  $('serviceStartDate').value='';$('serviceEndDate').value='';
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
@@ -708,13 +733,17 @@ function learnItems(lines){
   // The library is user-managed. Invoice creation does not add suggestions or usage counters.
 }
 function validateInvoice(requireEmail=false){
-  const name=$('clientName').value.trim(),email=$('clientEmail').value.trim(),lines=readInvoiceItems();
+  const name=$('clientName').value.trim(),recipientEmails=parseEmailList($('clientEmail').value),ccEmails=parseEmailList($('clientCc').value),bccEmails=parseEmailList($('clientBcc').value),lines=readInvoiceItems();
   if(!name){alert('Add the client name.');return null}
-  if(requireEmail&&!email){alert('Add the client email so the invoice knows where to go.');return null}
+  if(requireEmail&&!recipientEmails.length){alert('Add at least one recipient email so the invoice knows where to go.');return null}
+  const invalid=[...recipientEmails,...ccEmails,...bccEmails].filter(email=>!validEmail(email));
+  if(invalid.length){alert(`Check these email addresses:\n${invalid.join('\n')}`);return null}
+  const serviceStartDate=$('serviceStartDate').value,serviceEndDate=$('serviceEndDate').value;
+  if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return null}
   if(!lines.length){alert('Add at least one invoice line.');return null}
   const total=lines.reduce((sum,x)=>sum+x.qty*x.rate,0);
   if(total<=0){alert('The invoice total must be greater than zero.');return null}
-  return {name,email,lines,total};
+  return {name,email:recipientEmails[0]||'',recipientEmails,ccEmails,bccEmails,serviceStartDate,serviceEndDate,lines,total};
 }
 function makeInvoiceData(status){
   const v=validateInvoice(status==='sent');
@@ -726,8 +755,9 @@ function makeInvoiceData(status){
   const due=new Date(date+'T12:00:00'); due.setDate(due.getDate()+terms);
   return {
     id:uid(),number,clientId:client.id,clientName:v.name,clientEmail:v.email,
+    recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
     projectName:$('projectName').value.trim()||'Untitled project',
-    date,dueDate:due.toISOString().slice(0,10),terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
+    date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
     total:v.total,status,createdAt:new Date().toISOString(),
     mileage:readMileageRecord(),
     jobCosts:readJobCosts(),
@@ -889,7 +919,7 @@ function previewInvoice(){
   const terms=Number($('paymentTerms').value||0);
   const due=new Date(date+'T12:00:00');due.setDate(due.getDate()+terms);
   $('previewCard').innerHTML=invoiceHTML({
-    number:'PREVIEW',clientName:v.name,clientEmail:v.email,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:due.toISOString().slice(0,10),
+    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,
     lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
   });
   showPage('preview');
@@ -899,23 +929,44 @@ function sendInvoice(){
   openMail(inv);
   openInvoiceDetail(inv.id);
 }
-function openMail(inv){
+function buildMailtoURL(inv){
+  normalizeInvoiceContacts(inv);
   const subject=encodeURIComponent(`${inv.projectName||'Project'} — Invoice #${inv.number} from ${businessName()}`);
+  const workDates=serviceDateLabel(inv);
   const body=encodeURIComponent(
 `Hi ${inv.clientName},
 
 Please find invoice #${inv.number} for ${inv.projectName||'the project'} in the amount of ${money(inv.total)}.
 
-Due: ${inv.dueDate}
+${workDates?`${workDates}\n\n`:''}Due: ${inv.dueDate}
 
 This prototype does not yet host invoices online, so use the invoice details in the app or attach a PDF after printing the invoice page.
 
 Thank you,
 ${businessName()}`);
-  location.href=`mailto:${encodeURIComponent(inv.clientEmail)}?subject=${subject}&body=${body}`;
+  const query=[`subject=${subject}`,`body=${body}`];
+  if(inv.ccEmails.length)query.push(`cc=${encodeURIComponent(inv.ccEmails.join(','))}`);
+  if(inv.bccEmails.length)query.push(`bcc=${encodeURIComponent(inv.bccEmails.join(','))}`);
+  const recipients=inv.recipientEmails.map(encodeURIComponent).join(',');
+  return `mailto:${recipients}?${query.join('&')}`;
 }
+function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
+function serviceDateLabel(inv){
+  if(inv.serviceStartDate&&inv.serviceEndDate)return inv.serviceStartDate===inv.serviceEndDate?`Work date ${inv.serviceStartDate}`:`Work dates ${inv.serviceStartDate} – ${inv.serviceEndDate}`;
+  if(inv.serviceStartDate)return `Work starts ${inv.serviceStartDate}`;
+  if(inv.serviceEndDate)return `Work ends ${inv.serviceEndDate}`;
+  return '';
+}
+function invoiceEmailHTML(inv){
+  normalizeInvoiceContacts(inv);
+  const rows=[];
+  if(inv.recipientEmails.length)rows.push(inv.recipientEmails.map(esc).join('<br>'));
+  if(inv.ccEmails.length)rows.push(`<strong>CC:</strong> ${inv.ccEmails.map(esc).join(', ')}`);
+  return rows.join('<br>');
+}
 function invoiceHTML(inv){
+  normalizeInvoiceContacts(inv);
   const mileage=inv.mileage&&inv.mileage.enabled ? `
     <div class="invoice-notes" style="margin-top:14px">
       <div class="invoice-small-label">PRIVATE JOB RECORD · MILEAGE</div>
@@ -935,7 +986,7 @@ function invoiceHTML(inv){
       <div>
         <div class="invoice-doc-label">INVOICE #${esc(inv.number)}</div>
         <h2 class="invoice-project clickable" onclick="editProjectName('${inv.id}')">${esc(inv.projectName||'Untitled project')} ✎</h2>
-        <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)} · Due ${esc(inv.dueDate)}</div>
+        <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)} · Due ${esc(inv.dueDate)}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div>
       </div>
       <div class="invoice-mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div>
     </div>
@@ -944,7 +995,7 @@ function invoiceHTML(inv){
       <div class="clickable" onclick="openClientDetail('${inv.clientId}')">
         <div class="invoice-small-label">BILL TO</div>
         <div class="invoice-party-name">${esc(inv.clientName)}</div>
-        <div class="invoice-party-meta">${esc(inv.clientEmail||'')}</div>
+        <div class="invoice-party-meta">${invoiceEmailHTML(inv)}</div>
       </div>
       <div class="invoice-from">
         <div class="invoice-small-label">FROM</div>
@@ -1421,9 +1472,13 @@ function editClient(id){
 }
 function saveClientEdit(id){
   const c=clients.find(x=>x.id===id);if(!c)return;
-  const oldName=c.name;
+  const oldName=c.name,oldEmail=c.email||'';
   c.name=$('modalClientName').value.trim()||c.name;c.email=$('modalClientEmail').value.trim();
-  invoices.filter(i=>i.clientId===id).forEach(i=>{i.clientName=c.name;i.clientEmail=c.email});
+  invoices.filter(i=>i.clientId===id).forEach(i=>{
+    normalizeInvoiceContacts(i);i.clientName=c.name;i.clientEmail=c.email;
+    const secondary=i.recipientEmails.filter(email=>email.toLowerCase()!==oldEmail.toLowerCase()&&email.toLowerCase()!==c.email.toLowerCase());
+    i.recipientEmails=c.email?[c.email,...secondary]:secondary;
+  });
   persist();closeModal();
   if(!$('clientDetailPage').classList.contains('hidden'))openClientDetail(id);
   else renderClients();
@@ -1483,11 +1538,16 @@ function editInvoiceDates(invoiceId){
   openModal('Edit dates',`
     <label>Invoice date</label><input id="modalInvoiceDate" type="date" value="${inv.date}">
     <label>Due date</label><input id="modalDueDate" type="date" value="${inv.dueDate}">
+    <div class="row"><div><label>Work starts</label><input id="modalServiceStartDate" type="date" value="${inv.serviceStartDate||''}"></div>
+    <div><label>Work ends</label><input id="modalServiceEndDate" type="date" value="${inv.serviceEndDate||''}"></div></div>
     <button class="primary full" style="margin-top:14px" onclick="saveInvoiceDates('${invoiceId}')">Save dates</button>`);
 }
 function saveInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
+  const serviceStartDate=$('modalServiceStartDate').value,serviceEndDate=$('modalServiceEndDate').value;
+  if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return}
   inv.date=$('modalInvoiceDate').value||inv.date;inv.dueDate=$('modalDueDate').value||inv.dueDate;
+  inv.serviceStartDate=serviceStartDate;inv.serviceEndDate=serviceEndDate;
   persist();closeModal();openInvoiceDetail(invoiceId);
 }
 function editInvoiceNotes(invoiceId){
@@ -1504,8 +1564,9 @@ function editCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
   if(!inv.projectName)inv.projectName='Untitled project';
   editingInvoiceId=inv.id;
-  $('clientName').value=inv.clientName;$('clientEmail').value=inv.clientEmail||'';$('projectName').value=inv.projectName||'';
-  $('invoiceDate').value=inv.date;$('paymentTerms').value=String(inv.terms||30);$('invoiceNotes').value=inv.notes||'';
+  normalizeInvoiceContacts(inv);
+  $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
+  $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=String(inv.terms||30);$('invoiceNotes').value=inv.notes||'';
   loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
   $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
 }
@@ -1524,13 +1585,14 @@ function buildInvoicePDF(inv){
   doc.setFontSize(24);doc.setFont('helvetica','bold');
   doc.text(pdfSafe(inv.projectName||'Untitled project').slice(0,36),margin,70);
   doc.setFontSize(10);doc.setFont('helvetica','normal');
-  doc.text(`${pdfSafe(inv.date)}  |  Due ${pdfSafe(inv.dueDate)}`,margin,94);
+  doc.text(`${pdfSafe(inv.date)}  |  Due ${pdfSafe(inv.dueDate)}`,margin,90);
+  if(serviceDateLabel(inv)){doc.setFontSize(9);doc.text(pdfSafe(serviceDateLabel(inv)),margin,106)}
 
   doc.setTextColor(31,41,55);doc.setFont('helvetica','bold');doc.setFontSize(9);
   doc.text('BILL TO',margin,145);
   doc.setFontSize(16);doc.text(pdfSafe(inv.clientName),margin,168);
   doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(91,99,112);
-  doc.text(pdfSafe(inv.clientEmail||''),margin,186);
+  doc.text(inv.recipientEmails.map(pdfSafe).slice(0,3),margin,186);
 
   let y=230;
   doc.setFillColor(244,246,248);doc.roundedRect(margin,y-24,W-margin*2,28,6,6,'F');
@@ -1631,9 +1693,9 @@ function invoiceDocumentHTML(inv){
   @media(max-width:600px){.page{width:100%;margin:0;border-radius:0}.hero,.body{padding:22px}.head,.row{grid-template-columns:minmax(0,1fr) 42px 80px 92px;font-size:12px}h1{font-size:31px}}
   </style></head><body>
   <div class="page">
-    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)} · Due ${esc(inv.dueDate)}</div></div><div class="mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div></div>
+    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)} · Due ${esc(inv.dueDate)}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div></div><div class="mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div></div>
     <div class="body">
-      <div class="parties"><div><div class="small">BILL TO</div><div class="name">${esc(inv.clientName)}</div><div class="muted">${esc(inv.clientEmail||'')}</div></div><div class="right"><div class="small">FROM</div><div class="name">${esc(businessName())}</div></div></div>
+      <div class="parties"><div><div class="small">BILL TO</div><div class="name">${esc(inv.clientName)}</div><div class="muted">${invoiceEmailHTML(inv)}</div></div><div class="right"><div class="small">FROM</div><div class="name">${esc(businessName())}</div></div></div>
       <div class="head"><div>Description</div><div>Qty</div><div>Rate</div><div>Amount</div></div>
       ${rows}
       <div class="total"><span>Total</span><strong>${money(inv.total)}</strong></div>

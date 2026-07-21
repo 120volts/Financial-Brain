@@ -14,12 +14,27 @@ for (const feature of [
   'function addPayment(',
   'function paymentTotal(',
   'function invoiceBalance(',
+  'function parseEmailList(',
+  'function normalizeInvoiceContacts(',
+  'function serviceDateLabel(',
+  'function buildMailtoURL(',
   'function duplicateCurrentInvoice(',
   'function buildInvoicePDF(',
   'function renderClients(',
   'function renderItems(',
   'function renderBrain('
 ]) assert.ok(html.includes(feature), `Missing baseline feature: ${feature}`);
+
+for (const deliveryFeature of [
+  'recipientEmails',
+  'ccEmails',
+  'bccEmails',
+  'serviceStartDate',
+  'serviceEndDate',
+  'The work end date cannot be before the work start date',
+  "query.push(`cc=",
+  "query.push(`bcc="
+]) assert.ok(html.includes(deliveryFeature), `Missing invoice delivery/date behavior: ${deliveryFeature}`);
 
 for (const paymentFeature of [
   'payments:[]',
