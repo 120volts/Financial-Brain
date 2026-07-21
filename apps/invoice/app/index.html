@@ -311,11 +311,11 @@ textarea{min-height:76px;resize:vertical}
       <div><label>Work starts (optional)</label><input id="serviceStartDate" type="date" onchange="renderWorkSchedule()"></div>
       <div><label>Work ends (optional)</label><input id="serviceEndDate" type="date" onchange="renderWorkSchedule()"></div>
     </div>
-    <div class="notice" style="margin-top:8px">All dates in the range count as workdays automatically. Tap only the days you were off.</div>
+    <div class="notice" style="margin-top:8px">All dates in the range count as workdays automatically. Tap only the days you were off. The first line quantity follows the work-day count until you edit it yourself.</div>
     <div id="workScheduleBox" class="card hidden" style="box-shadow:none;margin:8px 0">
       <div id="workScheduleSummary" class="label"></div>
       <div id="workDateChips" class="toolbar" style="flex-wrap:wrap;margin-top:10px"></div>
-      <button class="secondary full" type="button" onclick="applyWorkDaysToFirstLine()">Use work-day count as first line quantity</button>
+      <button class="secondary full" type="button" onclick="applyWorkDaysToFirstLine()">Resume automatic work-day quantity</button>
     </div>
 
     <label>Saved services or products</label>
@@ -331,9 +331,10 @@ textarea{min-height:76px;resize:vertical}
     <div id="mileageBox" class="card hidden" style="box-shadow:none;margin:8px 0">
       <div class="row">
         <div><label>One-way distance</label><input id="mileageOneWay" type="number" min="0" step="0.1" placeholder="Miles" oninput="recalcMileage()"></div>
-        <div><label>Trips</label><input id="mileageTrips" type="number" min="1" step="1" value="2" oninput="recalcMileage()"></div>
+        <div><label>Trips per workday</label><input id="mileageTrips" type="number" min="1" step="1" value="2" oninput="recalcMileage()"></div>
       </div>
       <div class="total" style="margin-top:10px"><span>Total business miles</span><strong id="mileageTotal">0 mi</strong></div>
+      <div id="mileageFormula" class="notice" style="margin-top:8px"></div>
       <label class="toggle-label"><input id="billMileage" type="checkbox" onchange="syncMileageLine()"> Bill the client for this mileage</label>
       <div class="row">
         <div><label>Billing rate per mile</label><input id="mileageBillRate" type="number" min="0" step="0.01" value="0" oninput="syncMileageLine()"></div>
@@ -550,7 +551,7 @@ function workScheduleFromForm(){
 }
 function renderWorkSchedule(){
   const start=$('serviceStartDate').value,end=$('serviceEndDate').value,box=$('workScheduleBox');
-  if(!start||!end||end<start){box.classList.add('hidden');return}
+  if(!start||!end||end<start){box.classList.add('hidden');syncWorkDayQuantity();recalcMileage();return}
   const schedule=workScheduleFromForm();
   offWorkDates=new Set(schedule.offDates);
   box.classList.remove('hidden');
@@ -559,15 +560,26 @@ function renderWorkSchedule(){
     const label=new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
     return `<button class="chip work-day ${offWorkDates.has(date)?'off':''}" type="button" onclick="toggleWorkDate('${date}')">${esc(label)}</button>`;
   }).join('');
+  syncWorkDayQuantity();
+  recalcMileage();
 }
 function toggleWorkDate(date){
   if(offWorkDates.has(date))offWorkDates.delete(date);else offWorkDates.add(date);
   renderWorkSchedule();
 }
 function applyWorkDaysToFirstLine(){
-  const count=workScheduleFromForm().workDates.length,row=document.querySelector('.item-row');
+  const count=workScheduleFromForm().workDates.length,row=document.querySelector('#invoiceItems .item-row:not([data-mileage="true"])');
   if(!count||!row){alert('Add a valid work date range and invoice line first.');return}
-  row.querySelector('.item-qty').value=String(count);recalcInvoice();showToast(`${count} work days applied to the first line.`);
+  row.dataset.qtyMode='auto';syncWorkDayQuantity();showToast('The first line now follows the work-day count.');
+}
+function syncWorkDayQuantity(){
+  const row=document.querySelector('#invoiceItems .item-row:not([data-mileage="true"])');
+  if(!row||row.dataset.qtyMode==='manual')return;
+  const count=workScheduleFromForm().workDates.length;
+  row.querySelector('.item-qty').value=String(count||1);recalcInvoice();
+}
+function markQuantityOverride(input){
+  const row=input.closest('.item-row');if(row)row.dataset.qtyMode='manual';
 }
 
 function paymentTotal(inv){
@@ -733,9 +745,10 @@ function chooseSavedItem(id){
 function addItemRow(prefill={}){
   const row=document.createElement('div');
   row.className='item-row';
+  row.dataset.qtyMode=prefill.quantityMode||(Object.prototype.hasOwnProperty.call(prefill,'qty')?'manual':'auto');
   row.innerHTML=`
     <div><label>What did you do or sell?</label><input class="item-name" list="itemNames" value="${esc(prefill.name||'')}" placeholder="Service or product"></div>
-    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="0.25" value="${prefill.qty ?? 1}" oninput="recalcInvoice()"></div>
+    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="0.25" value="${prefill.qty ?? 1}" oninput="markQuantityOverride(this);recalcInvoice()"></div>
     <div><label>Rate</label><input class="item-rate" type="number" min="0" step="0.01" value="${prefill.rate ?? ''}" oninput="recalcInvoice()"></div>
     <button class="remove" onclick="this.parentElement.remove();recalcInvoice()">×</button>`;
   const nameInput=row.querySelector('.item-name');
@@ -745,12 +758,14 @@ function addItemRow(prefill={}){
     recalcInvoice();
   });
   $('invoiceItems').appendChild(row);
+  if(row.dataset.qtyMode==='auto')syncWorkDayQuantity();
 }
 function readInvoiceItems(){
   return [...document.querySelectorAll('.item-row')].map(row=>({
     name:row.querySelector('.item-name').value.trim(),
     qty:Number(row.querySelector('.item-qty').value||0),
-    rate:Number(row.querySelector('.item-rate').value||0)
+    rate:Number(row.querySelector('.item-rate').value||0),
+    quantityMode:row.dataset.qtyMode||'manual'
   })).filter(x=>x.name && x.qty>0);
 }
 function recalcInvoice(){
@@ -1624,9 +1639,14 @@ function editCurrentInvoice(){
   normalizeInvoiceContacts(inv);
   $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
   $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=inv.terms==null?(inv.dueDate?'30':''):String(inv.terms);$('invoiceNotes').value=inv.notes||'';
-  offWorkDates=new Set(inv.offDates||[]);renderWorkSchedule();
-  loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
-  $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
+  offWorkDates=new Set(inv.offDates||[]);
+  $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));
+  if(inv.mileage?.billClient){
+    const mileageRow=[...document.querySelectorAll('.item-row')].find(row=>row.querySelector('.item-name').value.trim().toLowerCase()==='mileage');
+    if(mileageRow)mileageRow.dataset.mileage='true';
+  }
+  renderWorkSchedule();loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
+  recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
 }
 
 function pdfSafe(text){return String(text||'').replace(/[^\x20-\x7E]/g,' ')}
@@ -1782,8 +1802,10 @@ function toggleMileage(){
 function recalcMileage(){
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
-  const total=oneWay*trips;
+  const workDays=Math.max(1,workScheduleFromForm().workDates.length);
+  const total=oneWay*trips*workDays;
   $('mileageTotal').textContent=`${total.toFixed(1)} mi`;
+  $('mileageFormula').textContent=`${oneWay.toFixed(1)} miles × ${trips} trip${trips===1?'':'s'} × ${workDays} work day${workDays===1?'':'s'}`;
   syncMileageLine();
 }
 function findMileageLine(){
@@ -1795,15 +1817,16 @@ function syncMileageLine(){
     if(existing)existing.remove();
     recalcInvoice();return;
   }
-  const miles=Number($('mileageOneWay').value||0)*Math.max(1,Number($('mileageTrips').value||1));
+  const miles=Number($('mileageOneWay').value||0)*Math.max(1,Number($('mileageTrips').value||1))*Math.max(1,workScheduleFromForm().workDates.length);
   const rate=Number($('mileageBillRate').value||0);
   if(!existing){
     addItemRow({name:'Mileage',qty:miles||1,rate});
     const rows=[...document.querySelectorAll('.item-row')];
     rows[rows.length-1].dataset.mileage='true';
+    rows[rows.length-1].dataset.qtyMode='auto';
   }else{
     existing.querySelector('.item-name').value='Mileage';
-    existing.querySelector('.item-qty').value=miles||1;
+    if(existing.dataset.qtyMode!=='manual')existing.querySelector('.item-qty').value=miles||1;
     existing.querySelector('.item-rate').value=rate;
   }
   recalcInvoice();
@@ -1812,9 +1835,10 @@ function readMileageRecord(){
   if(!$('hasMileage').checked)return {enabled:false};
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
+  const workDays=Math.max(1,workScheduleFromForm().workDates.length);
   return {
     enabled:true,
-    oneWayMiles:oneWay,trips,totalMiles:oneWay*trips,purpose:$('mileagePurpose').value.trim(),
+    oneWayMiles:oneWay,trips,workDays,totalMiles:oneWay*trips*workDays,purpose:$('mileagePurpose').value.trim(),
     billClient:$('billMileage').checked,billingRate:Number($('mileageBillRate').value||0)
   };
 }

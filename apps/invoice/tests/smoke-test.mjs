@@ -23,6 +23,8 @@ for (const feature of [
   'function renderWorkSchedule(',
   'function toggleWorkDate(',
   'function applyWorkDaysToFirstLine(',
+  'function syncWorkDayQuantity(',
+  'function markQuantityOverride(',
   'function duplicateCurrentInvoice(',
   'function buildInvoicePDF(',
   'function renderClients(',
@@ -66,7 +68,10 @@ for (const scheduleFeature of [
   'workDates',
   'offDates',
   'All dates in the range count as workdays automatically',
-  'Use work-day count as first line quantity'
+  'Resume automatic work-day quantity',
+  'Trips per workday',
+  "row.dataset.qtyMode==='manual'",
+  'oneWay*trips*workDays'
 ]) assert.ok(html.includes(scheduleFeature), `Missing work-schedule behavior: ${scheduleFeature}`);
 
 for (const paymentFeature of [

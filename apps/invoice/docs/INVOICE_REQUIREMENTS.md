@@ -11,11 +11,14 @@ An invoice must support at minimum:
 - Issue date with optional payment terms and due date
 - Optional service/work start and end dates
 - Automatic inclusive work-day calculation with tap-to-toggle irregular days off
-- Optional action to apply the calculated work-day count to the first invoice line quantity
+- The first invoice line quantity follows the calculated work-day count until the user edits it manually
+- The user can resume automatic work-day quantity after a manual override
 
 Mileage rules:
 
-- The user enters one-way distance, trip count, and business purpose without providing addresses.
+- The user enters one-way distance, trips per workday, and business purpose without providing addresses.
+- Total mileage is one-way distance × trips per workday × calculated workdays.
+- A billable mileage line follows calculated total miles until its quantity is manually overridden.
 
 Recipient rules:
 

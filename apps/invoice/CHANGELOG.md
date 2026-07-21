@@ -12,12 +12,14 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Optional service/work date ranges displayed separately from invoice and due dates.
 - Project name promoted to the top of the invoice editor and retained as the document title.
 - Automatic work-day totals across a date range with exception-based days off.
-- One-click application of the calculated work-day count to the first invoice line quantity.
+- Automatic first-line quantities from calculated workdays, with manual override and resume control.
+- Automatic mileage totals from one-way distance × trips per workday × calculated workdays.
 
 ### Changed
 - Simplified Mileage by removing project-address entry and map routing; users enter distance directly.
 - Removed starting-address entry from Mileage; mileage now requires no addresses.
 - Payment terms are optional; invoices without terms omit the due date everywhere.
+- Automatic workday and mileage quantities stop changing after the user manually edits them.
 
 ### Compatibility
 - Existing invoices with legacy `paidAmount` data are migrated in memory to `payments[]` without changing storage keys.
