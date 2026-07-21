@@ -46,6 +46,9 @@ Recipient rules:
 - The email body includes project, work dates, due date, line-item details, and total so essential invoice content is visible without opening the PDF
 - Mail recipients use the invoice client name, fall back to the linked saved client email for older invoices, and preserve Apple Mail-compatible To/CC/BCC separators
 - Generated invoice PDF filenames contain the project name, invoice date, and invoice number
+- Projects have a reusable searchable list with optional client links, invoice counts, billed totals, editing, and archiving
+- Project names are saved automatically from invoices without duplicates, and existing invoice projects are migrated into the list
+- Choosing a saved project on an invoice can also fill its linked client and email
 - Notes
 - Mileage record
 - Job costs

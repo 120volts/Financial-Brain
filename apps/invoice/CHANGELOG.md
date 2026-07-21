@@ -33,6 +33,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Split delivery into direct Email and Share PDF / Messages actions; direct email now pre-fills recipients, CC/BCC, subject, dates, itemized charges, total, and message text.
 - Invoice PDF filenames now identify the project, invoice date, and invoice number.
 - Improved Mail recipient formatting with client display names, saved-client email fallback, and compatible multi-address To/CC/BCC separators.
+- Added a reusable Projects list with automatic invoice learning, client links, search, totals, editing, archiving, and saved-project selection in the invoice editor.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility

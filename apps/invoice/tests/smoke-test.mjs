@@ -60,7 +60,7 @@ for (const workspaceFeature of [
   'Saved automatically as you work.',
   'Restored your automatically saved invoice.',
   'id="navPreview"',
-  "const MAIN_TABS=['home','new','preview','clients','items','brain']",
+  "const MAIN_TABS=['home','new','preview','clients','projects','items','brain']",
   "window.addEventListener('beforeunload',saveInvoiceWorkspace)"
 ]) assert.ok(html.includes(workspaceFeature), `Missing autosave/preview workspace behavior: ${workspaceFeature}`);
 
@@ -103,6 +103,10 @@ for (const scheduleFeature of [
   'Invoice details:',
   'function encodeMailboxes(',
   'function contactNameForEmail(',
+  'function learnProject(',
+  'function renderProjects()',
+  'function openProjectPicker()',
+  'function chooseSavedProject(',
   "inv.clientEmail||savedClient?.email||''",
   "invoice_resent:'Invoice resent'",
   "['Last resent',inv.lastSentAt]",
@@ -131,6 +135,7 @@ for (const key of [
   'invoiceApp.invoices',
   'invoiceApp.clients',
   'invoiceApp.items',
+  'invoiceApp.projects',
   'invoiceApp.brainEvents',
   'invoiceApp.taxRecords'
 ]) assert.ok(html.includes(key), `Missing storage key: ${key}`);

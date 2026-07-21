@@ -118,8 +118,8 @@ textarea{min-height:76px;resize:vertical}
   border-top:1px solid var(--line);backdrop-filter:blur(18px);
   padding:9px 10px calc(9px + env(safe-area-inset-bottom));
 }
-.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-.bottom button{background:transparent;color:var(--muted);padding:10px 5px;font-size:13px}
+.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.bottom button{background:transparent;color:var(--muted);padding:10px 3px;font-size:12px}
 .bottom button.active{background:var(--ink);color:#fff}
 .item-row{
   display:grid;grid-template-columns:minmax(0,1fr) 72px 96px 42px;gap:7px;align-items:end;
@@ -268,6 +268,7 @@ textarea{min-height:76px;resize:vertical}
     <label>Project name</label>
     <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
     <datalist id="projectNames"></datalist>
+    <button class="secondary full" style="margin-top:8px" onclick="openProjectPicker()">Choose saved project</button>
     <div class="notice" style="margin-top:8px">This appears as the large title at the top of the invoice, printable version, and PDF.</div>
     <label>Client</label>
     <input id="clientName" list="clientNames" placeholder="Client or company">
@@ -435,6 +436,19 @@ textarea{min-height:76px;resize:vertical}
   <div id="clientList" class="list"></div>
 </section>
 
+<section id="projectsPage" class="hidden">
+  <input class="search" id="projectSearch" placeholder="Search projects" oninput="renderProjects()">
+  <button class="primary full" onclick="openNewProject()">+ New project</button>
+  <label class="toggle-label"><input id="showArchivedProjects" type="checkbox" onchange="renderProjects()"> Show archived projects</label>
+  <div class="card notice">Projects are saved automatically from invoices. You can also create one here before making an invoice.</div>
+  <div id="projectEditor" class="card hidden">
+    <label>Project name</label><input id="newProjectName" placeholder="Example: Netflix Documentary">
+    <label>Client (optional)</label><input id="newProjectClient" list="clientNames" placeholder="Client or company">
+    <button class="primary full" style="margin-top:12px" onclick="saveNewProject()">Save project</button>
+  </div>
+  <div id="savedProjectList" class="list" style="margin-top:10px"></div>
+</section>
+
 <section id="itemsPage" class="hidden">
   <input class="search" id="itemSearch" placeholder="Search services & products" oninput="renderItems()">
   <button class="primary full" onclick="openNewItem()">+ New service or product</button>
@@ -514,7 +528,8 @@ textarea{min-height:76px;resize:vertical}
     <button id="navNew" onclick="openNewInvoice()">New</button>
     <button id="navPreview" onclick="openPreviewPage()">Preview</button>
     <button id="navClients" onclick="showPage('clients')">Clients</button>
-    <button id="navItems" onclick="showPage('items')">Services & Products</button>
+    <button id="navProjects" onclick="showPage('projects')">Projects</button>
+    <button id="navItems" onclick="showPage('items')">Items</button>
     <button id="navBrain" onclick="showPage('brain')">Brain</button>
   </div>
 </nav>
@@ -539,6 +554,7 @@ function invoiceDueSchedule(date,value){
 let invoices = JSON.parse(localStorage.getItem('invoiceApp.invoices')||'[]');
 let clients = JSON.parse(localStorage.getItem('invoiceApp.clients')||'[]');
 let items = JSON.parse(localStorage.getItem('invoiceApp.items')||'[]');
+let projects = JSON.parse(localStorage.getItem('invoiceApp.projects')||'[]');
 let brainEvents = JSON.parse(localStorage.getItem('invoiceApp.brainEvents')||'[]');
 let taxRecords = JSON.parse(localStorage.getItem('invoiceApp.taxRecords')||'[]');
 let currentInvoiceId = null;
@@ -637,6 +653,8 @@ function normalizeInvoicePayments(inv){
   return inv;
 }
 invoices.forEach(normalizeInvoicePayments);
+invoices.forEach(inv=>learnProject(inv.projectName,inv.clientId,inv.clientName));
+localStorage.setItem('invoiceApp.projects',JSON.stringify(projects));
 
 
 
@@ -660,6 +678,7 @@ function persist(){
   localStorage.setItem('invoiceApp.invoices',JSON.stringify(invoices));
   localStorage.setItem('invoiceApp.clients',JSON.stringify(clients));
   localStorage.setItem('invoiceApp.items',JSON.stringify(items));
+  localStorage.setItem('invoiceApp.projects',JSON.stringify(projects));
   localStorage.setItem('invoiceApp.brainEvents',JSON.stringify(brainEvents));
   localStorage.setItem('invoiceApp.taxRecords',JSON.stringify(taxRecords));
 }
@@ -711,14 +730,14 @@ function rememberPage(name){
   try{ localStorage.setItem('invoiceApp.lastPage',name); }catch(e){}
 }
 function hidePages(){
-  ['homePage','newInvoicePage','previewPage','detailPage','clientsPage','itemsPage','brainPage','clientDetailPage']
+  ['homePage','newInvoicePage','previewPage','detailPage','clientsPage','projectsPage','itemsPage','brainPage','clientDetailPage']
     .forEach(id=>$(id).classList.add('hidden'));
 }
 function resetNav(){
-  ['navInvoices','navNew','navPreview','navClients','navItems','navBrain'].forEach(id=>$(id).classList.remove('active'));
+  ['navInvoices','navNew','navPreview','navClients','navProjects','navItems','navBrain'].forEach(id=>$(id).classList.remove('active'));
 }
 
-const MAIN_TABS=['home','new','preview','clients','items','brain'];
+const MAIN_TABS=['home','new','preview','clients','projects','items','brain'];
 function rememberMainTab(name){
   if(MAIN_TABS.includes(name)){
     try{localStorage.setItem('invoiceApp.lastMainTab',name);}catch(e){}
@@ -756,6 +775,10 @@ function showPage(name){
     $('clientsPage').classList.remove('hidden'); $('navClients').classList.add('active');
     $('pageTitle').textContent='Clients'; $('pageSub').textContent='Everyone you invoice, automatically organized.';
     renderClients();
+  } else if(name==='projects'){
+    $('projectsPage').classList.remove('hidden'); $('navProjects').classList.add('active');
+    $('pageTitle').textContent='Projects'; $('pageSub').textContent='Reusable projects connected to clients and invoices.';
+    renderProjects();
   } else if(name==='items'){
     $('itemsPage').classList.remove('hidden'); $('navItems').classList.add('active');
     $('pageTitle').textContent='Services & Products'; $('pageSub').textContent='Your reusable services and products.';
@@ -787,6 +810,7 @@ function openNewInvoice(forceNew=false){
   $('invoiceItems').innerHTML='';
   addItemRow();
   refreshClientLists();
+  refreshProjectLists();
   refreshItemSuggestions();
   recalcInvoice();
   workspaceReady=true;saveInvoiceWorkspace();
@@ -852,6 +876,65 @@ function refreshClientLists(){
     if(match && !$('clientEmail').value) $('clientEmail').value=match.email||'';
   };
 }
+function learnProject(name,clientId=null,clientName=''){
+  name=String(name||'').trim();
+  if(!name||name.toLowerCase()==='untitled project')return null;
+  let project=projects.find(item=>item.name.trim().toLowerCase()===name.toLowerCase());
+  if(!project){project={id:uid(),name,clientId:clientId||null,clientName:clientName||'',archived:false,createdAt:new Date().toISOString()};projects.push(project)}
+  else {project.name=name;if(clientId)project.clientId=clientId;if(clientName)project.clientName=clientName}
+  return project;
+}
+function refreshProjectLists(){
+  $('projectNames').innerHTML=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name)).map(project=>`<option value="${esc(project.name)}"></option>`).join('');
+}
+function openProjectPicker(){
+  const active=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!active.length){alert('No saved projects yet. Add one from Projects or enter a project name on this invoice.');return}
+  openModal('Choose project',active.map(project=>`<button class="secondary full" style="margin-top:8px;text-align:left" onclick="chooseSavedProject('${project.id}')"><strong>${esc(project.name)}</strong>${project.clientName?`<div class="meta">${esc(project.clientName)}</div>`:''}</button>`).join(''));
+}
+function chooseSavedProject(id){
+  const project=projects.find(item=>item.id===id);if(!project)return;
+  $('projectName').value=project.name;
+  if(project.clientId){
+    const client=clients.find(item=>String(item.id)===String(project.clientId));
+    if(client){$('clientName').value=client.name;if(!$('clientEmail').value)$('clientEmail').value=client.email||''}
+  }else if(project.clientName&&!$('clientName').value)$('clientName').value=project.clientName;
+  closeModal();scheduleWorkspaceSave();
+}
+function renderProjects(){
+  const q=($('projectSearch')?.value||'').toLowerCase(),showArchived=$('showArchivedProjects')?.checked||false;
+  const visible=projects.filter(project=>project.name.toLowerCase().includes(q)&&(showArchived||!project.archived)).sort((a,b)=>a.name.localeCompare(b.name));
+  $('savedProjectList').innerHTML=visible.length?visible.map(project=>{
+    const linked=invoices.filter(inv=>inv.projectName?.toLowerCase()===project.name.toLowerCase());
+    return `<div class="entry ${project.archived?'archived-entry':''}"><button onclick="editSavedProject('${project.id}')" aria-label="Edit ${esc(project.name)}"><div style="display:flex;justify-content:space-between;gap:12px"><div><div class="title">${esc(project.name)} ${project.archived?'<span class="no-tax-pill">Archived</span>':''}</div><div class="meta">${esc(project.clientName||'No client selected')} · ${linked.length} invoice${linked.length===1?'':'s'}</div></div><div class="money">${money(linked.reduce((sum,inv)=>sum+Number(inv.total||0),0))}</div></div></button></div>`;
+  }).join(''):'<div class="card empty">No projects here yet.</div>';
+}
+function openNewProject(){$('projectEditor').classList.remove('hidden');$('newProjectName').value='';$('newProjectClient').value=''}
+function saveNewProject(){
+  const name=$('newProjectName').value.trim(),clientName=$('newProjectClient').value.trim();
+  if(!name){alert('Add a project name.');return}
+  const client=clients.find(item=>item.name.toLowerCase()===clientName.toLowerCase());
+  const existing=projects.find(item=>item.name.toLowerCase()===name.toLowerCase());
+  if(existing){existing.archived=false;if(client){existing.clientId=client.id;existing.clientName=client.name}}
+  else learnProject(name,client?.id||null,client?.name||clientName);
+  persist();refreshProjectLists();$('projectEditor').classList.add('hidden');renderProjects();showToast(existing?'Existing project restored.':'Project saved.');
+}
+function editSavedProject(id){
+  const project=projects.find(item=>item.id===id);if(!project)return;
+  openModal('Edit project',`<label>Project name</label><input id="modalSavedProjectName" value="${esc(project.name)}"><label>Client (optional)</label><input id="modalSavedProjectClient" list="clientNames" value="${esc(project.clientName||'')}"><button class="primary full" style="margin-top:14px" onclick="saveSavedProject('${id}')">Save project</button><button class="secondary full" style="margin-top:8px" onclick="toggleArchiveProject('${id}')">${project.archived?'Restore project':'Archive project'}</button>`);
+}
+function saveSavedProject(id){
+  const project=projects.find(item=>item.id===id);if(!project)return;
+  const name=$('modalSavedProjectName').value.trim(),clientName=$('modalSavedProjectClient').value.trim();if(!name){alert('Add a project name.');return}
+  if(projects.some(item=>item.id!==id&&item.name.toLowerCase()===name.toLowerCase())){alert('A project with that name already exists.');return}
+  const client=clients.find(item=>item.name.toLowerCase()===clientName.toLowerCase());
+  project.name=name;project.clientId=client?.id||null;project.clientName=client?.name||clientName;
+  persist();refreshProjectLists();closeModal();renderProjects();showToast('Project updated.');
+}
+function toggleArchiveProject(id){
+  const project=projects.find(item=>item.id===id);if(!project)return;project.archived=!project.archived;
+  persist();refreshProjectLists();closeModal();renderProjects();showToast(project.archived?'Project archived.':'Project restored.');
+}
 function refreshItemSuggestions(){
   // Suggestions intentionally disabled. Users choose from their own library.
 }
@@ -877,9 +960,10 @@ function learnInvoiceReferences(invoice){
   if(!invoice)return;
   const name=String(invoice.clientName||invoice.name||'').trim();
   const email=invoice.clientEmail||invoice.email||'';
-  if(name)upsertClient(name,email);
+  const client=name?upsertClient(name,email):null;
+  learnProject(invoice.projectName,client?.id||invoice.clientId||null,name);
   learnItems(invoice.lines||[]);
-  persist();
+  persist();refreshProjectLists();
 }
 function validateInvoice(requireEmail=false){
   const name=$('clientName').value.trim(),recipientEmails=parseEmailList($('clientEmail').value),ccEmails=parseEmailList($('clientCc').value),bccEmails=parseEmailList($('clientBcc').value),lines=readInvoiceItems();
@@ -1058,7 +1142,7 @@ function saveInvoice(status){
   } else {
     invoices.unshift(inv); currentInvoiceId=inv.id;
   }
-  learnItems(inv.lines);persist();
+  learnProject(inv.projectName,inv.clientId,inv.clientName);learnItems(inv.lines);persist();refreshProjectLists();
   if(brainEvents.some(event=>event.invoiceId===inv.id&&event.type==='invoice_created')){
     emitBrainEvent('invoice_updated',inv,{unique:String(Date.now())});
   }else{
@@ -1086,7 +1170,7 @@ function openPreviewPage(){
 }
 function previewInvoice(){
   const v=validateInvoice(false); if(!v)return;
-  learnInvoiceReferences({name:v.name,email:v.email,lines:v.lines});
+  learnInvoiceReferences({name:v.name,email:v.email,projectName:$('projectName').value.trim(),lines:v.lines});
   saveInvoiceWorkspace();
   showPage('preview');
 }
@@ -1982,8 +2066,8 @@ function saveDraftAndOpen(){
 
 function editProjectName(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
-  const options=[...new Set(invoices.map(i=>i.projectName).filter(Boolean))]
-    .sort().map(x=>`<option value="${esc(x)}"></option>`).join('');
+  const options=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name))
+    .map(project=>`<option value="${esc(project.name)}"></option>`).join('');
   openModal('Edit project name',`
     <label>Project name</label>
     <input id="modalProjectName" list="modalProjectNames" value="${esc(inv.projectName||'')}">
@@ -1994,7 +2078,7 @@ function editProjectName(invoiceId){
 function saveProjectName(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
   inv.projectName=$('modalProjectName').value.trim()||'Untitled project';
-  persist();closeModal();openInvoiceDetail(invoiceId);
+  learnProject(inv.projectName,inv.clientId,inv.clientName);persist();refreshProjectLists();closeModal();openInvoiceDetail(invoiceId);
 }
 
 
