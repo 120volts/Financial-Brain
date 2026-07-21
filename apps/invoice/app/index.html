@@ -608,7 +608,9 @@ function parseEmailList(value){
 }
 function validEmail(email){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
 function normalizeInvoiceContacts(inv){
-  inv.recipientEmails=parseEmailList(inv.recipientEmails?.length?inv.recipientEmails:inv.clientEmail);
+  const savedClient=clients.find(client=>String(client.id)===String(inv.clientId));
+  const primaryFallback=inv.clientEmail||savedClient?.email||'';
+  inv.recipientEmails=parseEmailList(inv.recipientEmails?.length?inv.recipientEmails:primaryFallback);
   inv.ccEmails=parseEmailList(inv.ccEmails);
   inv.bccEmails=parseEmailList(inv.bccEmails);
   inv.clientEmail=inv.recipientEmails[0]||inv.clientEmail||'';
@@ -1126,10 +1128,20 @@ Please see the attached invoice PDF.
 Thank you,
 ${businessName()}`);
   const query=[`subject=${subject}`,`body=${body}`];
-  if(inv.ccEmails.length)query.push(`cc=${encodeURIComponent(inv.ccEmails.join(','))}`);
-  if(inv.bccEmails.length)query.push(`bcc=${encodeURIComponent(inv.bccEmails.join(','))}`);
-  const recipients=inv.recipientEmails.map(encodeURIComponent).join(',');
+  if(inv.ccEmails.length)query.push(`cc=${encodeMailboxes(inv.ccEmails)}`);
+  if(inv.bccEmails.length)query.push(`bcc=${encodeMailboxes(inv.bccEmails)}`);
+  const recipients=encodeMailboxes(inv.recipientEmails,inv.clientName);
   return `mailto:${recipients}?${query.join('&')}`;
+}
+function contactNameForEmail(email,fallback=''){
+  if(fallback)return fallback;
+  return clients.find(client=>(client.email||'').toLowerCase()===String(email).toLowerCase())?.name||'';
+}
+function encodeMailboxes(emails,primaryName=''){
+  return emails.map((email,index)=>{
+    const name=contactNameForEmail(email,index===0?primaryName:'');
+    return encodeURIComponent(name?`${name.replace(/["<>]/g,'')} <${email}>`:email);
+  }).join(',');
 }
 function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}

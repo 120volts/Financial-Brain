@@ -44,6 +44,7 @@ Recipient rules:
 - Email and Share are separate actions: Email opens the configured mail app with recipients and invoice content filled in, while Share opens the device Share Sheet with the PDF attached
 - Direct email downloads the invoice PDF for manual attachment because browsers cannot add attachments to mailto messages
 - The email body includes project, work dates, due date, line-item details, and total so essential invoice content is visible without opening the PDF
+- Mail recipients use the invoice client name, fall back to the linked saved client email for older invoices, and preserve Apple Mail-compatible To/CC/BCC separators
 - Generated invoice PDF filenames contain the project name, invoice date, and invoice number
 - Notes
 - Mileage record
