@@ -263,6 +263,11 @@ textarea{min-height:76px;resize:vertical}
 
 <section id="newInvoicePage" class="hidden">
   <div class="card">
+    <label>Project name</label>
+    <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
+    <datalist id="projectNames"></datalist>
+    <div class="notice" style="margin-top:8px">This appears as the large title at the top of the invoice, printable version, and PDF.</div>
+
     <label>Client</label>
     <input id="clientName" list="clientNames" placeholder="Client or company">
     <div id="selectedClientHint" class="meta" style="margin-top:5px"></div>
@@ -276,11 +281,6 @@ textarea{min-height:76px;resize:vertical}
       <div><label>CC (optional)</label><textarea id="clientCc" rows="2" placeholder="manager@company.com"></textarea></div>
       <div><label>BCC (optional)</label><textarea id="clientBcc" rows="2" placeholder="records@mybusiness.com"></textarea></div>
     </div>
-
-    <label>Invoice / project name</label>
-    <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
-    <datalist id="projectNames"></datalist>
-    <div class="notice" style="margin-top:8px">This is the large title shown on the invoice and PDF. You can change it here or later by tapping the title.</div>
 
     <div class="top-actions" style="margin-top:10px">
       <button class="secondary" onclick="showPage('clients')">Choose saved client</button>

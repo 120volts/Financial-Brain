@@ -10,6 +10,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Per-payment cash-basis income events and tax records.
 - Multiple invoice recipients with optional CC and BCC lists.
 - Optional service/work date ranges displayed separately from invoice and due dates.
+- Project name promoted to the top of the invoice editor and retained as the document title.
 
 ### Compatibility
 - Existing invoices with legacy `paidAmount` data are migrated in memory to `payments[]` without changing storage keys.

@@ -7,7 +7,7 @@ An invoice must support at minimum:
 - Stable internal ID
 - Human-readable invoice number
 - Client reference, multiple recipient emails, and optional CC/BCC details
-- Project name
+- Project name shown first in the editor and as the prominent title on every invoice format
 - Issue date and due date
 - Optional service/work start and end dates
 
