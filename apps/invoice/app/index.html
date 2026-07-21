@@ -306,6 +306,7 @@ textarea{min-height:76px;resize:vertical}
           <option value="15">Net 15</option>
           <option value="30" selected>Net 30</option>
           <option value="45">Net 45</option>
+          <option value="60">Net 60</option>
         </select>
       </div>
     </div>
@@ -1949,19 +1950,46 @@ function saveInvoiceLine(invoiceId,index){
 }
 function editInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
+  const standardTerms=['0','7','15','30','45','60'];
+  const selectedTerms=inv.terms==null?(inv.dueDate?'custom':''):(standardTerms.includes(String(inv.terms))?String(inv.terms):'custom');
   openModal('Edit dates',`
-    <label>Invoice date</label><input id="modalInvoiceDate" type="date" value="${inv.date}">
-    <label>Due date (optional)</label><input id="modalDueDate" type="date" value="${inv.dueDate||''}">
+    <label>Invoice date</label><input id="modalInvoiceDate" type="date" value="${inv.date}" onchange="syncModalDueDate()">
+    <label>Payment terms (optional)</label>
+    <select id="modalPaymentTerms" onchange="syncModalDueDate()">
+      <option value="" ${selectedTerms===''?'selected':''}>No due date</option>
+      <option value="0" ${selectedTerms==='0'?'selected':''}>Due on receipt</option>
+      <option value="7" ${selectedTerms==='7'?'selected':''}>Net 7</option>
+      <option value="15" ${selectedTerms==='15'?'selected':''}>Net 15</option>
+      <option value="30" ${selectedTerms==='30'?'selected':''}>Net 30</option>
+      <option value="45" ${selectedTerms==='45'?'selected':''}>Net 45</option>
+      <option value="60" ${selectedTerms==='60'?'selected':''}>Net 60</option>
+      <option value="custom" ${selectedTerms==='custom'?'selected':''}>Custom due date</option>
+    </select>
+    <label>Due date</label><input id="modalDueDate" type="date" value="${inv.dueDate||''}">
     <div class="row"><div><label>Work starts</label><input id="modalServiceStartDate" type="date" value="${inv.serviceStartDate||''}"></div>
     <div><label>Work ends</label><input id="modalServiceEndDate" type="date" value="${inv.serviceEndDate||''}"></div></div>
     <button class="primary full" style="margin-top:14px" onclick="saveInvoiceDates('${invoiceId}')">Save dates</button>`);
+  syncModalDueDate();
+}
+function syncModalDueDate(){
+  const terms=$('modalPaymentTerms').value,date=$('modalInvoiceDate').value||today(),dueInput=$('modalDueDate');
+  const custom=terms==='custom';
+  dueInput.disabled=!custom;
+  if(!custom)dueInput.value=invoiceDueSchedule(date,terms).dueDate;
 }
 function saveInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
   const serviceStartDate=$('modalServiceStartDate').value,serviceEndDate=$('modalServiceEndDate').value;
   if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return}
-  inv.date=$('modalInvoiceDate').value||inv.date;inv.dueDate=$('modalDueDate').value;
-  inv.terms=inv.dueDate?Math.max(0,Math.round((new Date(inv.dueDate)-new Date(inv.date))/86400000)):null;
+  inv.date=$('modalInvoiceDate').value||inv.date;
+  const selectedTerms=$('modalPaymentTerms').value;
+  if(selectedTerms==='custom'){
+    inv.dueDate=$('modalDueDate').value;
+    inv.terms=inv.dueDate?Math.max(0,Math.round((new Date(inv.dueDate)-new Date(inv.date))/86400000)):null;
+  }else{
+    const schedule=invoiceDueSchedule(inv.date,selectedTerms);
+    inv.dueDate=schedule.dueDate;inv.terms=schedule.terms;
+  }
   inv.serviceStartDate=serviceStartDate;inv.serviceEndDate=serviceEndDate;
   const calendarDates=dateRangeISO(serviceStartDate,serviceEndDate);
   inv.offDates=(inv.offDates||[]).filter(date=>calendarDates.includes(date));

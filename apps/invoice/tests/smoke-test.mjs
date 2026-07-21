@@ -137,6 +137,15 @@ for (const paymentFeature of [
   'excludeFromBrain:!!payment.excludeFromBrain'
 ]) assert.ok(html.includes(paymentFeature), `Missing partial-payment behavior: ${paymentFeature}`);
 
+for (const dueDateFeature of [
+  'id="modalPaymentTerms"',
+  'No due date',
+  'Due on receipt',
+  'Net 60',
+  'Custom due date',
+  'function syncModalDueDate()'
+]) assert.ok(html.includes(dueDateFeature), `Missing editable due-date behavior: ${dueDateFeature}`);
+
 for (const key of [
   'invoiceApp.invoices',
   'invoiceApp.clients',

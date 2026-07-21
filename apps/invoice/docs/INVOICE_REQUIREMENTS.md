@@ -27,6 +27,7 @@ Recipient rules:
 - Invalid addresses and reversed work date ranges must be rejected.
 - BCC recipients are used for email delivery but never displayed on the invoice or PDF.
 - Selecting “No due date” omits payment terms from the invoice, email, printable view, and PDF.
+- Editing a saved invoice provides No due date, Due on receipt, Net 7/15/30/45/60, and Custom due date choices.
 - Line items with description, quantity and rate
 - Quantity arrow controls move in whole numbers, while manually entered decimal quantities remain supported in invoice calculations
 - The business name can be edited directly from Preview and updates both the FROM name and business-initial mark

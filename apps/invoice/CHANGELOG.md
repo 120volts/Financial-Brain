@@ -5,6 +5,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 ## [Unreleased]
 
 ### Added
+- Payment-term choices in the saved-invoice date editor, including No due date, Due on receipt, Net terms, and a custom due date.
 - Per-payment “Don't add this payment to Financial Brain” control that preserves Paid status while omitting Financial Brain income and tax records.
 - Partial-payment recording with received date, method, reference and notes.
 - Payment history, paid total and remaining balance on invoice details.
