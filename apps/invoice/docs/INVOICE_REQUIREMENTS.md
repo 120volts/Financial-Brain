@@ -41,6 +41,9 @@ Recipient rules:
 - A prepared W-9 can be downloaded for inspection before it is included with an invoice
 - Edited sent invoices can be sent again from Preview without creating a second invoice
 - Existing invoice details provide a clear Resend PDF invoice action and record the latest resend time
+- Email and Share are separate actions: Email opens the configured mail app with recipients and invoice content filled in, while Share opens the device Share Sheet with the PDF attached
+- Direct email downloads the invoice PDF for manual attachment because browsers cannot add attachments to mailto messages
+- The email body includes project, work dates, due date, line-item details, and total so essential invoice content is visible without opening the PDF
 - Notes
 - Mileage record
 - Job costs

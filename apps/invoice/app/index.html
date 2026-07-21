@@ -391,21 +391,22 @@ textarea{min-height:76px;resize:vertical}
   </div>
   <div class="row">
     <button class="secondary big full" onclick="showPage('new')">Edit</button>
-    <button class="primary big full" onclick="sendInvoice()">Send PDF invoice</button>
+    <button class="primary big full" onclick="sendInvoice()">Email invoice</button>
   </div>
+  <button class="secondary big full" style="margin-top:10px" onclick="shareInvoiceFromPreview()">Share PDF / Messages</button>
 </section>
 
 <section id="detailPage" class="hidden">
   <div id="detailCard" class="card"></div>
   <div class="row">
     <button class="secondary big full" onclick="editCurrentInvoice()">Edit invoice</button>
-    <button class="primary big full" onclick="shareCurrentPDF()">Share visual invoice</button>
+    <button class="primary big full" onclick="shareCurrentPDF()">Share PDF / Messages</button>
   </div>
   <div class="row">
     <button class="secondary big full" onclick="openPrintableInvoice()">Open full invoice</button>
     <button class="primary big full" id="recordPaymentButton" onclick="togglePaymentEditor()">Record payment</button>
   </div>
-  <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend PDF invoice</button>
+  <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend by email</button>
   <div id="paymentEditor" class="card hidden" style="margin:10px 0;box-shadow:none">
     <div class="section-title" style="margin-top:0">Record payment</div>
     <div class="row">
@@ -424,7 +425,7 @@ textarea{min-height:76px;resize:vertical}
     <button class="secondary big full" onclick="markViewed()">Mark viewed (test)</button>
     <button class="danger big full" onclick="deleteCurrentInvoice()">Delete</button>
   </div>
-  <div class="pdf-note">“Share visual invoice” creates the same styled invoice you see here as a PDF. On iPhone, choose Mail from the Share Sheet to attach it.</div>
+  <div class="pdf-note">Email opens your Mail app with the recipients and message filled in; attach the downloaded PDF. Share PDF / Messages opens the device Share Sheet with the PDF already attached.</div>
 </section>
 
 <section id="clientsPage" class="hidden">
@@ -1091,23 +1092,36 @@ async function sendInvoice(){
   const includeW9=$('includeW9')?.checked;
   if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sending.');return}
   const inv=saveInvoice('sent');if(!inv)return;
-  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
-  if(result==='downloaded'){
-    openMail(inv);
-    showToast(includeW9?'Invoice downloaded. Attach it and your W-9 to the email.':'Invoice downloaded. Attach it to the email.');
-  }
+  if(!downloadInvoicePDF(inv))return;
+  if(includeW9)downloadPreparedW9();
+  openMail(inv);
   openInvoiceDetail(inv.id);
+  showToast(includeW9?'Mail opened. Attach the downloaded invoice and W-9 PDFs.':'Mail opened. Attach the downloaded invoice PDF.');
+}
+async function shareInvoiceFromPreview(){
+  const includeW9=$('includeW9')?.checked;
+  if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sharing.');return}
+  const inv=saveInvoice('sent');if(!inv)return;
+  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
+  if(result==='downloaded')showToast('PDF downloaded. Choose the app where you want to send it.');
+  if(result!=='cancelled')openInvoiceDetail(inv.id);
 }
 function buildMailtoURL(inv){
   normalizeInvoiceContacts(inv);
   const subject=encodeURIComponent(`${inv.projectName||'Project'} — Invoice #${inv.number} from ${businessName()}`);
   const workDates=serviceDateLabel(inv);
+  const lineSummary=inv.lines.map(line=>`${line.qty} × ${line.name} at ${money(line.rate)} = ${money(line.qty*line.rate)}`).join('\n');
   const body=encodeURIComponent(
 `Hi ${inv.clientName},
 
 Please find invoice #${inv.number} for ${inv.projectName||'the project'} in the amount of ${money(inv.total)}.
 
-${workDates?`${workDates}\n\n`:''}${inv.dueDate?`Due: ${inv.dueDate}\n\n`:''}This prototype does not yet host invoices online, so use the invoice details in the app or attach a PDF after printing the invoice page.
+${workDates?`${workDates}\n\n`:''}${inv.dueDate?`Due: ${inv.dueDate}\n\n`:''}Invoice details:
+${lineSummary}
+
+Total: ${money(inv.total)}
+
+Please see the attached invoice PDF.
 
 Thank you,
 ${businessName()}`);
@@ -1293,14 +1307,12 @@ function invoiceHTML(inv){
 }
 async function sendCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  const includeW9=$('includeW9')?.checked&&preparedW9File,attachments=includeW9?[preparedW9File]:[];
-  const result=await shareInvoicePDF(inv,attachments);if(!result||result==='cancelled')return;
+  if(!downloadInvoicePDF(inv))return;
   const wasPreviouslySent=!!inv.sentAt,now=new Date().toISOString();
   if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
   if(inv.status==='draft')inv.status='sent';
   persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
-  if(result==='downloaded')openMail(inv);
-  openInvoiceDetail(inv.id);showToast(wasPreviouslySent?'Invoice prepared to resend.':'Invoice prepared to send.');
+  openMail(inv);openInvoiceDetail(inv.id);showToast('Mail opened. Attach the downloaded invoice PDF.');
 }
 function markViewed(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
@@ -1480,7 +1492,7 @@ function openInvoiceDetail(id){
   $('paymentEditor').classList.add('hidden');
   $('recordPaymentButton').textContent=invoiceBalance(inv)>0?'Record payment':'Paid in full';
   $('recordPaymentButton').disabled=invoiceBalance(inv)<=0;
-  $('resendInvoiceButton').textContent=inv.sentAt?'Resend PDF invoice':'Send PDF invoice';
+  $('resendInvoiceButton').textContent=inv.sentAt?'Resend by email':'Send by email';
   $('pageTitle').textContent=inv.projectName||'Untitled project';
   $('pageSub').textContent=`${inv.clientName} · Invoice #${inv.number}`;
 }
@@ -1934,6 +1946,10 @@ async function shareInvoicePDF(inv,attachments=[]){
   }
   doc.save(`Invoice-${inv.number}.pdf`);
   return 'downloaded';
+}
+function downloadInvoicePDF(inv){
+  const doc=buildInvoicePDF(inv);if(!doc)return false;
+  doc.save(`Invoice-${inv.number}.pdf`);return true;
 }
 function shareCurrentPDF(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(inv)shareInvoicePDF(inv);
