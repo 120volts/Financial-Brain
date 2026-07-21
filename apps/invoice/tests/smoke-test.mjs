@@ -88,6 +88,8 @@ for (const scheduleFeature of [
   'function editBusinessName()',
   'function saveBusinessName()',
   'function businessInitials()',
+  'function learnInvoiceReferences(',
+  'lines.filter(line=>!line.mileage)',
   "words[0][0]+words[words.length-1][0]",
   'Business name updated.',
   'Trips per workday',

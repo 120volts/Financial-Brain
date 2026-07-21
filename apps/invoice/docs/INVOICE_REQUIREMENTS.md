@@ -31,6 +31,8 @@ Recipient rules:
 - Quantity arrow controls move in whole numbers, while manually entered decimal quantities remain supported in invoice calculations
 - The business name can be edited directly from Preview and updates both the FROM name and business-initial mark
 - Multi-word business names use the first letter of the first and last words for the invoice mark
+- Valid clients and manually entered line items are saved to Clients and Services & Products when the invoice is previewed, saved, or sent
+- Automatically generated mileage lines do not become reusable services or products
 - Notes
 - Mileage record
 - Job costs

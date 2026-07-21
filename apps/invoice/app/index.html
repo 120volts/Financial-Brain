@@ -820,7 +820,8 @@ function readInvoiceItems(){
     name:row.querySelector('.item-name').value.trim(),
     qty:Number(row.querySelector('.item-qty').value||0),
     rate:Number(row.querySelector('.item-rate').value||0),
-    quantityMode:row.dataset.qtyMode||'manual'
+    quantityMode:row.dataset.qtyMode||'manual',
+    mileage:row.dataset.mileage==='true'
   })).filter(x=>x.name && x.qty>0);
 }
 function recalcInvoice(){
@@ -851,7 +852,20 @@ function upsertClient(name,email){
   return client;
 }
 function learnItems(lines){
-  // The library is user-managed. Invoice creation does not add suggestions or usage counters.
+  lines.filter(line=>!line.mileage).forEach(line=>{
+    const name=String(line.name||'').trim();
+    if(!name)return;
+    const exists=items.some(item=>item.name.trim().toLowerCase()===name.toLowerCase());
+    if(!exists)items.push({id:uid(),name,rate:Number(line.rate||0),archived:false,createdAt:new Date().toISOString()});
+  });
+}
+function learnInvoiceReferences(invoice){
+  if(!invoice)return;
+  const name=String(invoice.clientName||invoice.name||'').trim();
+  const email=invoice.clientEmail||invoice.email||'';
+  if(name)upsertClient(name,email);
+  learnItems(invoice.lines||[]);
+  persist();
 }
 function validateInvoice(requireEmail=false){
   const name=$('clientName').value.trim(),recipientEmails=parseEmailList($('clientEmail').value),ccEmails=parseEmailList($('clientCc').value),bccEmails=parseEmailList($('clientBcc').value),lines=readInvoiceItems();
@@ -1053,6 +1067,7 @@ function openPreviewPage(){
 }
 function previewInvoice(){
   const v=validateInvoice(false); if(!v)return;
+  learnInvoiceReferences({name:v.name,email:v.email,lines:v.lines});
   saveInvoiceWorkspace();
   showPage('preview');
 }
