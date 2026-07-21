@@ -11,6 +11,8 @@ An invoice must support at minimum:
 - Optional project address or place name reusable by Mileage
 - Issue date and due date
 - Optional service/work start and end dates
+- Automatic inclusive work-day calculation with tap-to-toggle irregular days off
+- Optional action to apply the calculated work-day count to the first invoice line quantity
 
 Mileage location rules:
 

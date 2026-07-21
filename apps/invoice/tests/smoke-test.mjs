@@ -22,6 +22,10 @@ for (const feature of [
   'function useBusinessAddress(',
   'function useProjectLocation(',
   'function openDrivingRoute(',
+  'function dateRangeISO(',
+  'function renderWorkSchedule(',
+  'function toggleWorkDate(',
+  'function applyWorkDaysToFirstLine(',
   'function duplicateCurrentInvoice(',
   'function buildInvoicePDF(',
   'function renderClients(',
@@ -46,6 +50,13 @@ for (const locationFeature of [
   'maps.apple.com',
   'Automatic distance entry will require a connected routing provider'
 ]) assert.ok(html.includes(locationFeature), `Missing project location/mileage behavior: ${locationFeature}`);
+
+for (const scheduleFeature of [
+  'workDates',
+  'offDates',
+  'All dates in the range count as workdays automatically',
+  'Use work-day count as first line quantity'
+]) assert.ok(html.includes(scheduleFeature), `Missing work-schedule behavior: ${scheduleFeature}`);
 
 for (const paymentFeature of [
   'payments:[]',

@@ -110,6 +110,7 @@ textarea{min-height:76px;resize:vertical}
 .chip[data-filter="overdue"].active{background:#b6423c;color:#fff;border-color:#b6423c}
 .chip[data-filter="paid"].active{background:#1f7a4d;color:#fff;border-color:#1f7a4d}
 .chip[data-filter="partial"].active{background:#7445a7;color:#fff;border-color:#7445a7}
+.work-day{font-size:12px}.work-day.off{background:var(--red-bg);color:var(--red);border-color:#e3aaa7;text-decoration:line-through}
 .chip[data-filter="cancelled"].active{background:#555d67;color:#fff;border-color:#555d67}
 .bottom{
   position:fixed;z-index:50;left:0;right:0;bottom:0;background:rgba(255,255,255,.94);
@@ -310,10 +311,15 @@ textarea{min-height:76px;resize:vertical}
       </div>
     </div>
     <div class="row">
-      <div><label>Work starts (optional)</label><input id="serviceStartDate" type="date"></div>
-      <div><label>Work ends (optional)</label><input id="serviceEndDate" type="date"></div>
+      <div><label>Work starts (optional)</label><input id="serviceStartDate" type="date" onchange="renderWorkSchedule()"></div>
+      <div><label>Work ends (optional)</label><input id="serviceEndDate" type="date" onchange="renderWorkSchedule()"></div>
     </div>
-    <div class="notice" style="margin-top:8px">Use the work date range for a shoot, billing period, rental, or multi-day project. Invoice and due dates remain separate.</div>
+    <div class="notice" style="margin-top:8px">All dates in the range count as workdays automatically. Tap only the days you were off.</div>
+    <div id="workScheduleBox" class="card hidden" style="box-shadow:none;margin:8px 0">
+      <div id="workScheduleSummary" class="label"></div>
+      <div id="workDateChips" class="toolbar" style="flex-wrap:wrap;margin-top:10px"></div>
+      <button class="secondary full" type="button" onclick="applyWorkDaysToFirstLine()">Use work-day count as first line quantity</button>
+    </div>
 
     <label>Saved services or products</label>
     <div id="itemSuggestions" class="suggestions"></div>
@@ -536,6 +542,40 @@ let editingInvoiceId = null;
 let filter = 'all';
 let lastUndo = null;
 let toastTimer = null;
+let offWorkDates = new Set();
+
+function dateRangeISO(start,end){
+  if(!start||!end||end<start)return [];
+  const dates=[],cursor=new Date(start+'T12:00:00'),last=new Date(end+'T12:00:00');
+  while(cursor<=last&&dates.length<367){dates.push(cursor.toISOString().slice(0,10));cursor.setDate(cursor.getDate()+1)}
+  return dates;
+}
+function workScheduleFromForm(){
+  const calendarDates=dateRangeISO($('serviceStartDate').value,$('serviceEndDate').value);
+  const offDates=calendarDates.filter(date=>offWorkDates.has(date));
+  return {calendarDates,offDates,workDates:calendarDates.filter(date=>!offWorkDates.has(date))};
+}
+function renderWorkSchedule(){
+  const start=$('serviceStartDate').value,end=$('serviceEndDate').value,box=$('workScheduleBox');
+  if(!start||!end||end<start){box.classList.add('hidden');return}
+  const schedule=workScheduleFromForm();
+  offWorkDates=new Set(schedule.offDates);
+  box.classList.remove('hidden');
+  $('workScheduleSummary').textContent=`${schedule.calendarDates.length} calendar day${schedule.calendarDates.length===1?'':'s'} · ${schedule.workDates.length} work day${schedule.workDates.length===1?'':'s'} · ${schedule.offDates.length} off`;
+  $('workDateChips').innerHTML=schedule.calendarDates.map(date=>{
+    const label=new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+    return `<button class="chip work-day ${offWorkDates.has(date)?'off':''}" type="button" onclick="toggleWorkDate('${date}')">${esc(label)}</button>`;
+  }).join('');
+}
+function toggleWorkDate(date){
+  if(offWorkDates.has(date))offWorkDates.delete(date);else offWorkDates.add(date);
+  renderWorkSchedule();
+}
+function applyWorkDaysToFirstLine(){
+  const count=workScheduleFromForm().workDates.length,row=document.querySelector('.item-row');
+  if(!count||!row){alert('Add a valid work date range and invoice line first.');return}
+  row.querySelector('.item-qty').value=String(count);recalcInvoice();showToast(`${count} work days applied to the first line.`);
+}
 
 function paymentTotal(inv){
   if(Array.isArray(inv.payments))return inv.payments.reduce((sum,p)=>sum+Number(p.amount||0),0);
@@ -553,6 +593,10 @@ function normalizeInvoiceContacts(inv){
   inv.clientEmail=inv.recipientEmails[0]||inv.clientEmail||'';
   inv.serviceStartDate=inv.serviceStartDate||'';
   inv.serviceEndDate=inv.serviceEndDate||'';
+  inv.offDates=Array.isArray(inv.offDates)?inv.offDates:[];
+  const calendarDates=dateRangeISO(inv.serviceStartDate,inv.serviceEndDate);
+  inv.offDates=inv.offDates.filter(date=>calendarDates.includes(date));
+  inv.workDates=calendarDates.filter(date=>!inv.offDates.includes(date));
   return inv;
 }
 function normalizeInvoicePayments(inv){
@@ -659,6 +703,7 @@ function openNewInvoice(){
   currentInvoiceId=null; editingInvoiceId=null;
   $('clientName').value=''; $('clientEmail').value='';$('clientCc').value='';$('clientBcc').value=''; $('projectName').value='';$('projectLocation').value=''; $('invoiceDate').value=today();
   $('serviceStartDate').value='';$('serviceEndDate').value='';
+  offWorkDates=new Set();renderWorkSchedule();
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
@@ -757,10 +802,11 @@ function validateInvoice(requireEmail=false){
   if(invalid.length){alert(`Check these email addresses:\n${invalid.join('\n')}`);return null}
   const serviceStartDate=$('serviceStartDate').value,serviceEndDate=$('serviceEndDate').value;
   if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return null}
+  const schedule=workScheduleFromForm();
   if(!lines.length){alert('Add at least one invoice line.');return null}
   const total=lines.reduce((sum,x)=>sum+x.qty*x.rate,0);
   if(total<=0){alert('The invoice total must be greater than zero.');return null}
-  return {name,email:recipientEmails[0]||'',recipientEmails,ccEmails,bccEmails,serviceStartDate,serviceEndDate,lines,total};
+  return {name,email:recipientEmails[0]||'',recipientEmails,ccEmails,bccEmails,serviceStartDate,serviceEndDate,workDates:schedule.workDates,offDates:schedule.offDates,lines,total};
 }
 function makeInvoiceData(status){
   const v=validateInvoice(status==='sent');
@@ -774,7 +820,7 @@ function makeInvoiceData(status){
     id:uid(),number,clientId:client.id,clientName:v.name,clientEmail:v.email,
     recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
     projectName:$('projectName').value.trim()||'Untitled project',projectLocation:$('projectLocation').value.trim(),
-    date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
+    date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
     total:v.total,status,createdAt:new Date().toISOString(),
     mileage:readMileageRecord(),
     jobCosts:readJobCosts(),
@@ -936,7 +982,7 @@ function previewInvoice(){
   const terms=Number($('paymentTerms').value||0);
   const due=new Date(date+'T12:00:00');due.setDate(due.getDate()+terms);
   $('previewCard').innerHTML=invoiceHTML({
-    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',projectLocation:$('projectLocation').value.trim(),date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,
+    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',projectLocation:$('projectLocation').value.trim(),date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,
     lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
   });
   showPage('preview');
@@ -971,9 +1017,11 @@ function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
 function businessAddress(){return localStorage.getItem('invoiceApp.businessAddress')||''}
 function serviceDateLabel(inv){
-  if(inv.serviceStartDate&&inv.serviceEndDate)return inv.serviceStartDate===inv.serviceEndDate?`Work date ${inv.serviceStartDate}`:`Work dates ${inv.serviceStartDate} – ${inv.serviceEndDate}`;
-  if(inv.serviceStartDate)return `Work starts ${inv.serviceStartDate}`;
-  if(inv.serviceEndDate)return `Work ends ${inv.serviceEndDate}`;
+  const count=Array.isArray(inv.workDates)?inv.workDates.length:dateRangeISO(inv.serviceStartDate,inv.serviceEndDate).length;
+  const suffix=count?` · ${count} work day${count===1?'':'s'}`:'';
+  if(inv.serviceStartDate&&inv.serviceEndDate)return (inv.serviceStartDate===inv.serviceEndDate?`Work date ${inv.serviceStartDate}`:`Work dates ${inv.serviceStartDate} – ${inv.serviceEndDate}`)+suffix;
+  if(inv.serviceStartDate)return `Work starts ${inv.serviceStartDate}${suffix}`;
+  if(inv.serviceEndDate)return `Work ends ${inv.serviceEndDate}${suffix}`;
   return '';
 }
 function invoiceEmailHTML(inv){
@@ -1566,6 +1614,9 @@ function saveInvoiceDates(invoiceId){
   if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return}
   inv.date=$('modalInvoiceDate').value||inv.date;inv.dueDate=$('modalDueDate').value||inv.dueDate;
   inv.serviceStartDate=serviceStartDate;inv.serviceEndDate=serviceEndDate;
+  const calendarDates=dateRangeISO(serviceStartDate,serviceEndDate);
+  inv.offDates=(inv.offDates||[]).filter(date=>calendarDates.includes(date));
+  inv.workDates=calendarDates.filter(date=>!inv.offDates.includes(date));
   persist();closeModal();openInvoiceDetail(invoiceId);
 }
 function editInvoiceNotes(invoiceId){
@@ -1585,6 +1636,7 @@ function editCurrentInvoice(){
   normalizeInvoiceContacts(inv);
   $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';$('projectLocation').value=inv.projectLocation||'';
   $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=String(inv.terms||30);$('invoiceNotes').value=inv.notes||'';
+  offWorkDates=new Set(inv.offDates||[]);renderWorkSchedule();
   loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
   $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
 }

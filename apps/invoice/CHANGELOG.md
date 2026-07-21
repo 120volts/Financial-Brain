@@ -13,6 +13,8 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Project name promoted to the top of the invoice editor and retained as the document title.
 - Saved business starting address and reusable project address/place-name fields for Mileage.
 - One-click Apple Maps driving route from the Mileage section.
+- Automatic work-day totals across a date range with exception-based days off.
+- One-click application of the calculated work-day count to the first invoice line quantity.
 
 ### Compatibility
 - Existing invoices with legacy `paidAmount` data are migrated in memory to `payments[]` without changing storage keys.
