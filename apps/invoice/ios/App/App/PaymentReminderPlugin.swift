@@ -11,8 +11,6 @@ final class PaymentReminderPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private let center = UNUserNotificationCenter.current()
-    private let interval: TimeInterval = 10 * 24 * 60 * 60
-
     @objc func schedule(_ call: CAPPluginCall) {
         let reminderID = call.getString("id", "")
         guard !reminderID.isEmpty else {
@@ -31,9 +29,13 @@ final class PaymentReminderPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             let notificationID = self.notificationID(reminderID)
+            let intervalDays = min(365, max(1, call.getInt("intervalDays", 7)))
+            let interval = TimeInterval(intervalDays * 24 * 60 * 60)
             self.center.getPendingNotificationRequests { pending in
-                let exists = pending.contains { $0.identifier == notificationID }
-                if exists && !call.getBool("replace", false) {
+                let existing = pending.first { $0.identifier == notificationID }
+                let existingInterval = (existing?.trigger as? UNTimeIntervalNotificationTrigger)?.timeInterval
+                let intervalMatches = existingInterval.map { abs($0 - interval) < 1 } ?? false
+                if existing != nil && intervalMatches && !call.getBool("replace", false) {
                     call.resolve(["scheduled": true, "permission": "granted", "existing": true])
                     return
                 }
@@ -45,7 +47,7 @@ final class PaymentReminderPlugin: CAPPlugin, CAPBridgedPlugin {
                 content.userInfo = ["invoiceId": call.getString("invoiceId", reminderID)]
 
                 let trigger = UNTimeIntervalNotificationTrigger(
-                    timeInterval: self.interval,
+                    timeInterval: interval,
                     repeats: true
                 )
                 let request = UNNotificationRequest(
