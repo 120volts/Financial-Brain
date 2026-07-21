@@ -1,0 +1,8 @@
+{
+  "appId": "com.financialbrain.invoice",
+  "appName": "Financial Brain Invoice",
+  "webDir": "app",
+  "server": {
+    "iosScheme": "capacitor"
+  }
+}

@@ -11,7 +11,6 @@
 <meta name="theme-color" content="#f4f6f8">
 <title>Invoice v2.3.4</title>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
 :root{
   --bg:#f4f6f8; --card:#fff; --ink:#15171b; --muted:#69707c;
@@ -111,15 +110,14 @@ textarea{min-height:76px;resize:vertical}
 .chip[data-filter="overdue"].active{background:#b6423c;color:#fff;border-color:#b6423c}
 .chip[data-filter="paid"].active{background:#1f7a4d;color:#fff;border-color:#1f7a4d}
 .chip[data-filter="partial"].active{background:#7445a7;color:#fff;border-color:#7445a7}
-.work-day{font-size:12px}.work-day.off{background:var(--red-bg);color:var(--red);border-color:#e3aaa7;text-decoration:line-through}
 .chip[data-filter="cancelled"].active{background:#555d67;color:#fff;border-color:#555d67}
 .bottom{
   position:fixed;z-index:50;left:0;right:0;bottom:0;background:rgba(255,255,255,.94);
   border-top:1px solid var(--line);backdrop-filter:blur(18px);
   padding:9px 10px calc(9px + env(safe-area-inset-bottom));
 }
-.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.bottom button{background:transparent;color:var(--muted);padding:10px 3px;font-size:12px}
+.bottom .nav{width:min(100%,820px);margin:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.bottom button{background:transparent;color:var(--muted);padding:10px 5px;font-size:13px}
 .bottom button.active{background:var(--ink);color:#fff}
 .item-row{
   display:grid;grid-template-columns:minmax(0,1fr) 72px 96px 42px;gap:7px;align-items:end;
@@ -265,24 +263,19 @@ textarea{min-height:76px;resize:vertical}
 
 <section id="newInvoicePage" class="hidden">
   <div class="card">
-    <label>Project name</label>
-    <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
-    <datalist id="projectNames"></datalist>
-    <select id="savedProjectSelect" style="margin-top:8px" onchange="chooseProjectFromSelect(this.value)"><option value="">Choose a saved project…</option></select>
-    <div class="notice" style="margin-top:8px">This appears as the large title at the top of the invoice, printable version, and PDF.</div>
     <label>Client</label>
     <input id="clientName" list="clientNames" placeholder="Client or company">
     <div id="selectedClientHint" class="meta" style="margin-top:5px"></div>
     <datalist id="clientNames"></datalist>
 
-    <label>Send to</label>
-    <textarea id="clientEmail" rows="2" list="clientEmails" placeholder="billing@company.com, producer@company.com"></textarea>
+    <label>Email</label>
+    <input id="clientEmail" type="email" list="clientEmails" placeholder="billing@company.com">
     <datalist id="clientEmails"></datalist>
 
-    <div class="row">
-      <div><label>CC (optional)</label><textarea id="clientCc" rows="2" placeholder="manager@company.com"></textarea></div>
-      <div><label>BCC (optional)</label><textarea id="clientBcc" rows="2" placeholder="records@mybusiness.com"></textarea></div>
-    </div>
+    <label>Invoice / project name</label>
+    <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
+    <datalist id="projectNames"></datalist>
+    <div class="notice" style="margin-top:8px">This is the large title shown on the invoice and PDF. You can change it here or later by tapping the title.</div>
 
     <div class="top-actions" style="margin-top:10px">
       <button class="secondary" onclick="showPage('clients')">Choose saved client</button>
@@ -298,32 +291,19 @@ textarea{min-height:76px;resize:vertical}
 
     <div class="row">
       <div><label>Invoice date</label><input id="invoiceDate" type="date"></div>
-      <div><label>Payment terms (optional)</label>
+      <div><label>Payment terms</label>
         <select id="paymentTerms">
-          <option value="">No due date</option>
           <option value="0">Due on receipt</option>
           <option value="7">Net 7</option>
           <option value="15">Net 15</option>
           <option value="30" selected>Net 30</option>
           <option value="45">Net 45</option>
-          <option value="60">Net 60</option>
         </select>
       </div>
     </div>
-    <div class="row">
-      <div><label>Work starts (optional)</label><input id="serviceStartDate" type="date" onchange="renderWorkSchedule()"></div>
-      <div><label>Work ends (optional)</label><input id="serviceEndDate" type="date" onchange="renderWorkSchedule()"></div>
-    </div>
-    <div class="notice" style="margin-top:8px">All dates in the range count as workdays automatically. Tap only the days you were off. The first line quantity follows the work-day count until you edit it yourself.</div>
-    <div id="workScheduleBox" class="card hidden" style="box-shadow:none;margin:8px 0">
-      <div id="workScheduleSummary" class="label"></div>
-      <div id="workDateChips" class="toolbar" style="flex-wrap:wrap;margin-top:10px"></div>
-      <button class="secondary full" type="button" onclick="applyWorkDaysToFirstLine()">Resume automatic work-day quantity</button>
-    </div>
 
     <label>Saved services or products</label>
-    <select id="savedItemSelect" onchange="chooseItemFromSelect(this.value)"><option value="">Choose a service or product…</option></select>
-    <datalist id="itemNames"></datalist>
+    <div id="itemSuggestions" class="suggestions"></div>
 
     <div id="invoiceItems"></div>
     <button class="secondary" style="margin-top:12px" onclick="addItemRow()">+ Add line</button>
@@ -333,18 +313,22 @@ textarea{min-height:76px;resize:vertical}
 
     <label class="toggle-label"><input id="hasMileage" type="checkbox" onchange="toggleMileage()"> Track mileage (optional)</label>
     <div id="mileageBox" class="card hidden" style="box-shadow:none;margin:8px 0">
+      <label>Starting location</label>
+      <input id="mileageFrom" list="locationNames" placeholder="Home or another starting point">
+      <label>Work location</label>
+      <input id="mileageTo" list="locationNames" placeholder="Set, client, jobsite, hospital, etc.">
+      <datalist id="locationNames"></datalist>
       <div class="row">
         <div><label>One-way distance</label><input id="mileageOneWay" type="number" min="0" step="0.1" placeholder="Miles" oninput="recalcMileage()"></div>
-        <div><label>Trips per workday</label><input id="mileageTrips" type="number" min="1" step="1" value="2" oninput="recalcMileage()"></div>
+        <div><label>Trips</label><input id="mileageTrips" type="number" min="1" step="1" value="2" oninput="recalcMileage()"></div>
       </div>
       <div class="total" style="margin-top:10px"><span>Total business miles</span><strong id="mileageTotal">0 mi</strong></div>
-      <div id="mileageFormula" class="notice" style="margin-top:8px"></div>
       <label class="toggle-label"><input id="billMileage" type="checkbox" onchange="syncMileageLine()"> Bill the client for this mileage</label>
       <div class="row">
         <div><label>Billing rate per mile</label><input id="mileageBillRate" type="number" min="0" step="0.01" value="0" oninput="syncMileageLine()"></div>
         <div><label>Purpose</label><input id="mileagePurpose" placeholder="Travel to client work"></div>
       </div>
-      <div class="notice" style="margin-top:10px">The mileage record keeps the date, distance, and business purpose. Your client billing rate is separate from any tax deduction calculation.</div>
+      <div class="notice" style="margin-top:10px">The tax record is the route, date, distance, and business purpose. Your client billing rate is separate from any tax deduction calculation.</div>
     </div>
 
     <button class="secondary full" type="button" onclick="toggleJobCosts()" style="margin-top:12px">+ Add job expenses for my records</button>
@@ -381,56 +365,32 @@ textarea{min-height:76px;resize:vertical}
     <button class="secondary big full" onclick="saveDraftAndOpen()">Save draft</button>
     <button class="primary big full" onclick="previewInvoice()">Preview</button>
   </div>
-  <div id="autosaveStatus" class="meta" style="text-align:center;margin-top:8px">Saved automatically as you work.</div>
 </section>
 
 <section id="previewPage" class="hidden">
   <div class="card invoice-preview" id="previewCard"></div>
-  <div class="card" style="margin-top:10px">
-    <label><input id="includeW9" type="checkbox"> Include my W-9 (optional)</label>
-    <div id="w9Status" class="notice" style="margin-top:8px">W-9 not prepared.</div>
-    <div class="row" style="margin-top:10px"><button class="secondary full" onclick="openW9Editor()">Set up or update W-9</button><button class="secondary full" onclick="downloadPreparedW9()">Download prepared W-9</button></div>
-    <div class="notice" style="margin-top:8px">Your reusable details stay on this device. Your TIN and signature are used only to create the current W-9 PDF and are never saved.</div>
-  </div>
   <div class="row">
     <button class="secondary big full" onclick="showPage('new')">Edit</button>
-    <button class="primary big full" onclick="sendInvoice()">Email invoice</button>
+    <button class="primary big full" onclick="sendInvoice()">Send invoice</button>
   </div>
-  <button class="secondary big full" style="margin-top:10px" onclick="shareInvoiceFromPreview()">Share PDF / Messages</button>
 </section>
 
 <section id="detailPage" class="hidden">
   <div id="detailCard" class="card"></div>
   <div class="row">
     <button class="secondary big full" onclick="editCurrentInvoice()">Edit invoice</button>
-    <button class="primary big full" onclick="shareCurrentPDF()">Share PDF / Messages</button>
+    <button class="primary big full" onclick="shareCurrentPDF()">Share visual invoice</button>
   </div>
   <div class="row">
     <button class="secondary big full" onclick="openPrintableInvoice()">Open full invoice</button>
-    <button class="primary big full" id="recordPaymentButton" onclick="togglePaymentEditor()">Record payment</button>
-  </div>
-  <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend by email</button>
-  <div id="paymentEditor" class="card hidden" style="margin:10px 0;box-shadow:none">
-    <div class="section-title" style="margin-top:0">Record payment</div>
-    <div class="row">
-      <div><label>Amount received</label><input id="paymentAmount" type="number" min="0.01" step="0.01"></div>
-      <div><label>Date received</label><input id="paymentDate" type="date"></div>
-    </div>
-    <div class="row">
-      <div><label>Method (optional)</label><input id="paymentMethod" placeholder="Check, ACH, card, cash"></div>
-      <div><label>Reference (optional)</label><input id="paymentReference" placeholder="Check or transaction number"></div>
-    </div>
-    <label>Notes (optional)</label><input id="paymentNotes" placeholder="Anything useful about this payment">
-    <label class="toggle-label"><input id="excludePaymentFromBrain" type="checkbox"> Don't add this payment to Financial Brain</label>
-    <div class="notice">The invoice will still be marked paid. This payment will be excluded from Financial Brain income and tax records.</div>
-    <button class="primary full" style="margin-top:14px" onclick="recordPayment()">Save payment</button>
+    <button class="primary big full" onclick="markPaid()">Mark paid</button>
   </div>
   <div class="row">
     <button class="secondary big full" onclick="duplicateCurrentInvoice()">Duplicate invoice</button>
     <button class="secondary big full" onclick="markViewed()">Mark viewed (test)</button>
     <button class="danger big full" onclick="deleteCurrentInvoice()">Delete</button>
   </div>
-  <div class="pdf-note">Email and Resend open the device Share Sheet with the invoice PDF, subject, and message already prepared. Choose Mail to compose an email with the PDF attached.</div>
+  <div class="pdf-note">“Share visual invoice” creates the same styled invoice you see here as a PDF. On iPhone, choose Mail from the Share Sheet to attach it.</div>
 </section>
 
 <section id="clientsPage" class="hidden">
@@ -438,19 +398,6 @@ textarea{min-height:76px;resize:vertical}
   <label class="toggle-label"><input id="showArchivedClients" type="checkbox" onchange="renderClients()"> Show archived clients</label>
   <div class="card notice">Clients are created automatically from invoices. Importing a vCard fills name and email, but direct iPhone Contacts access requires the future native app.</div>
   <div id="clientList" class="list"></div>
-</section>
-
-<section id="projectsPage" class="hidden">
-  <input class="search" id="projectSearch" placeholder="Search projects" oninput="renderProjects()">
-  <button class="primary full" onclick="openNewProject()">+ New project</button>
-  <label class="toggle-label"><input id="showArchivedProjects" type="checkbox" onchange="renderProjects()"> Show archived projects</label>
-  <div class="card notice">Projects are saved automatically from invoices. You can also create one here before making an invoice.</div>
-  <div id="projectEditor" class="card hidden">
-    <label>Project name</label><input id="newProjectName" placeholder="Example: Netflix Documentary">
-    <label>Client (optional)</label><input id="newProjectClient" list="clientNames" placeholder="Client or company">
-    <button class="primary full" style="margin-top:12px" onclick="saveNewProject()">Save project</button>
-  </div>
-  <div id="savedProjectList" class="list" style="margin-top:10px"></div>
 </section>
 
 <section id="itemsPage" class="hidden">
@@ -471,7 +418,7 @@ textarea{min-height:76px;resize:vertical}
     <div class="title">Financial Brain connection</div>
     <div class="meta" style="margin-top:6px">
       This is the abbreviated background view. Invoice actions create events automatically.
-      In this prototype, tax income is recorded only when an invoice payment is recorded and not explicitly excluded from Financial Brain.
+      In this prototype, tax income is recorded only when an invoice is marked paid.
     </div>
   </div>
 
@@ -494,7 +441,7 @@ textarea{min-height:76px;resize:vertical}
     <div class="title">Tax background rule</div>
     <div class="meta" style="margin-top:6px">
       Cash-basis prototype: Draft, Sent, and Viewed do not create taxable income.
-      Recording an invoice payment creates a Gross Receipts income record for the amount received.
+      Marking an invoice Paid creates a Gross Receipts income record.
     </div>
   </div>
 
@@ -530,10 +477,8 @@ textarea{min-height:76px;resize:vertical}
   <div class="nav">
     <button id="navInvoices" class="active" onclick="showPage('home')">Invoices</button>
     <button id="navNew" onclick="openNewInvoice()">New</button>
-    <button id="navPreview" onclick="openPreviewPage()">Preview</button>
     <button id="navClients" onclick="showPage('clients')">Clients</button>
-    <button id="navProjects" onclick="showPage('projects')">Projects</button>
-    <button id="navItems" onclick="showPage('items')">Items</button>
+    <button id="navItems" onclick="showPage('items')">Services & Products</button>
     <button id="navBrain" onclick="showPage('brain')">Brain</button>
   </div>
 </nav>
@@ -545,20 +490,9 @@ const esc = s => String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>
 const today = () => new Date().toISOString().slice(0,10);
 const uid = () => crypto?.randomUUID?.() || String(Date.now())+Math.random();
 
-function addDays(date,days){
-  const result=new Date(date+'T12:00:00');result.setDate(result.getDate()+Number(days||0));
-  return result.toISOString().slice(0,10);
-}
-function invoiceDueSchedule(date,value){
-  if(value==='')return {terms:null,dueDate:''};
-  const terms=Number(value);
-  return {terms,dueDate:addDays(date,terms)};
-}
-
 let invoices = JSON.parse(localStorage.getItem('invoiceApp.invoices')||'[]');
 let clients = JSON.parse(localStorage.getItem('invoiceApp.clients')||'[]');
 let items = JSON.parse(localStorage.getItem('invoiceApp.items')||'[]');
-let projects = JSON.parse(localStorage.getItem('invoiceApp.projects')||'[]');
 let brainEvents = JSON.parse(localStorage.getItem('invoiceApp.brainEvents')||'[]');
 let taxRecords = JSON.parse(localStorage.getItem('invoiceApp.taxRecords')||'[]');
 let currentInvoiceId = null;
@@ -567,98 +501,6 @@ let editingInvoiceId = null;
 let filter = 'all';
 let lastUndo = null;
 let toastTimer = null;
-let offWorkDates = new Set();
-let workspaceReady = false;
-let workspaceTimer = null;
-const WORKSPACE_KEY='invoiceApp.invoiceWorkspace';
-const W9_PROFILE_KEY='invoiceApp.w9Profile';
-let preparedW9File=null;
-
-function dateRangeISO(start,end){
-  if(!start||!end||end<start)return [];
-  const dates=[],cursor=new Date(start+'T12:00:00'),last=new Date(end+'T12:00:00');
-  while(cursor<=last&&dates.length<367){dates.push(cursor.toISOString().slice(0,10));cursor.setDate(cursor.getDate()+1)}
-  return dates;
-}
-function workScheduleFromForm(){
-  const calendarDates=dateRangeISO($('serviceStartDate').value,$('serviceEndDate').value);
-  const offDates=calendarDates.filter(date=>offWorkDates.has(date));
-  return {calendarDates,offDates,workDates:calendarDates.filter(date=>!offWorkDates.has(date))};
-}
-function renderWorkSchedule(){
-  const start=$('serviceStartDate').value,end=$('serviceEndDate').value,box=$('workScheduleBox');
-  if(!start||!end||end<start){box.classList.add('hidden');syncWorkDayQuantity();recalcMileage();return}
-  const schedule=workScheduleFromForm();
-  offWorkDates=new Set(schedule.offDates);
-  box.classList.remove('hidden');
-  $('workScheduleSummary').textContent=`${schedule.calendarDates.length} calendar day${schedule.calendarDates.length===1?'':'s'} · ${schedule.workDates.length} work day${schedule.workDates.length===1?'':'s'} · ${schedule.offDates.length} off`;
-  $('workDateChips').innerHTML=schedule.calendarDates.map(date=>{
-    const label=new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
-    return `<button class="chip work-day ${offWorkDates.has(date)?'off':''}" type="button" onclick="toggleWorkDate('${date}')">${esc(label)}</button>`;
-  }).join('');
-  syncWorkDayQuantity();
-  recalcMileage();
-}
-function toggleWorkDate(date){
-  if(offWorkDates.has(date))offWorkDates.delete(date);else offWorkDates.add(date);
-  renderWorkSchedule();
-}
-function applyWorkDaysToFirstLine(){
-  const count=workScheduleFromForm().workDates.length,row=document.querySelector('#invoiceItems .item-row:not([data-mileage="true"])');
-  if(!count||!row){alert('Add a valid work date range and invoice line first.');return}
-  row.dataset.qtyMode='auto';syncWorkDayQuantity();showToast('The first line now follows the work-day count.');
-}
-function syncWorkDayQuantity(){
-  const row=document.querySelector('#invoiceItems .item-row:not([data-mileage="true"])');
-  if(!row||row.dataset.qtyMode==='manual')return;
-  const count=workScheduleFromForm().workDates.length;
-  row.querySelector('.item-qty').value=String(count||1);recalcInvoice();
-}
-function markQuantityOverride(input){
-  const row=input.closest('.item-row');if(row)row.dataset.qtyMode='manual';
-}
-
-function paymentTotal(inv){
-  if(Array.isArray(inv.payments))return inv.payments.reduce((sum,p)=>sum+Number(p.amount||0),0);
-  return Number(inv.paidAmount||0);
-}
-function invoiceBalance(inv){return Math.max(0,Number(inv.total||0)-paymentTotal(inv))}
-function parseEmailList(value){
-  return [...new Set(String(value||'').split(/[\n,;]+/).map(email=>email.trim()).filter(Boolean))];
-}
-function validEmail(email){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
-function normalizeInvoiceContacts(inv){
-  const savedClient=clients.find(client=>String(client.id)===String(inv.clientId));
-  const primaryFallback=inv.clientEmail||savedClient?.email||'';
-  inv.recipientEmails=parseEmailList(inv.recipientEmails?.length?inv.recipientEmails:primaryFallback);
-  inv.ccEmails=parseEmailList(inv.ccEmails);
-  inv.bccEmails=parseEmailList(inv.bccEmails);
-  inv.clientEmail=inv.recipientEmails[0]||inv.clientEmail||'';
-  inv.serviceStartDate=inv.serviceStartDate||'';
-  inv.serviceEndDate=inv.serviceEndDate||'';
-  inv.offDates=Array.isArray(inv.offDates)?inv.offDates:[];
-  const calendarDates=dateRangeISO(inv.serviceStartDate,inv.serviceEndDate);
-  inv.offDates=inv.offDates.filter(date=>calendarDates.includes(date));
-  inv.workDates=calendarDates.filter(date=>!inv.offDates.includes(date));
-  return inv;
-}
-function normalizeInvoicePayments(inv){
-  normalizeInvoiceContacts(inv);
-  if(!Array.isArray(inv.payments)){
-    const legacyAmount=Math.min(Number(inv.total||0),Number(inv.paidAmount||0));
-    inv.payments=legacyAmount>0?[{
-      id:`legacy-${inv.id}`,amount:legacyAmount,paidAt:inv.paidAt||inv.updatedAt||inv.createdAt,
-      method:'Legacy payment',reference:'',notes:'Migrated from paidAmount'
-    }]:[];
-  }
-  inv.paidAmount=paymentTotal(inv);
-  if(invoiceBalance(inv)===0&&inv.paidAmount>0)inv.status='paid';
-  else if(inv.paidAmount>0)inv.status='partial';
-  return inv;
-}
-invoices.forEach(normalizeInvoicePayments);
-invoices.forEach(inv=>learnProject(inv.projectName,inv.clientId,inv.clientName));
-localStorage.setItem('invoiceApp.projects',JSON.stringify(projects));
 
 
 
@@ -682,66 +524,21 @@ function persist(){
   localStorage.setItem('invoiceApp.invoices',JSON.stringify(invoices));
   localStorage.setItem('invoiceApp.clients',JSON.stringify(clients));
   localStorage.setItem('invoiceApp.items',JSON.stringify(items));
-  localStorage.setItem('invoiceApp.projects',JSON.stringify(projects));
   localStorage.setItem('invoiceApp.brainEvents',JSON.stringify(brainEvents));
   localStorage.setItem('invoiceApp.taxRecords',JSON.stringify(taxRecords));
-}
-function invoiceWorkspaceFromForm(){
-  const value=id=>$(id)?.value||'';
-  return {
-    version:1,savedAt:new Date().toISOString(),editingInvoiceId,
-    projectName:value('projectName'),clientName:value('clientName'),clientEmail:value('clientEmail'),clientCc:value('clientCc'),clientBcc:value('clientBcc'),
-    invoiceDate:value('invoiceDate'),paymentTerms:value('paymentTerms'),serviceStartDate:value('serviceStartDate'),serviceEndDate:value('serviceEndDate'),offDates:[...offWorkDates],
-    lines:[...document.querySelectorAll('#invoiceItems .item-row')].map(row=>({name:row.querySelector('.item-name').value,qty:row.querySelector('.item-qty').value,rate:row.querySelector('.item-rate').value,quantityMode:row.dataset.qtyMode||'manual',mileage:row.dataset.mileage==='true'})),
-    notes:value('invoiceNotes'),hasMileage:$('hasMileage').checked,oneWayMiles:value('mileageOneWay'),trips:value('mileageTrips'),billMileage:$('billMileage').checked,mileageBillRate:value('mileageBillRate'),mileagePurpose:value('mileagePurpose'),
-    jobCostsVisible:!$('jobCostsBox').classList.contains('hidden'),parking:value('costParking'),transit:value('costTransit'),lodging:value('costLodging'),meals:value('costMeals'),supplies:value('costSupplies'),rental:value('costRental'),costNote:value('costNote')
-  };
-}
-function saveInvoiceWorkspace(){
-  if(!workspaceReady)return;
-  try{
-    localStorage.setItem(WORKSPACE_KEY,JSON.stringify(invoiceWorkspaceFromForm()));
-    if($('autosaveStatus'))$('autosaveStatus').textContent=`Saved automatically · ${new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`;
-  }catch(e){if($('autosaveStatus'))$('autosaveStatus').textContent='Could not save automatically on this device.'}
-}
-function scheduleWorkspaceSave(){
-  if(!workspaceReady)return;
-  if($('autosaveStatus'))$('autosaveStatus').textContent='Saving…';
-  clearTimeout(workspaceTimer);workspaceTimer=setTimeout(saveInvoiceWorkspace,120);
-}
-function clearInvoiceWorkspace(){
-  clearTimeout(workspaceTimer);workspaceTimer=null;
-  try{localStorage.removeItem(WORKSPACE_KEY)}catch(e){}
-}
-function restoreInvoiceWorkspace(){
-  let workspace=null;
-  try{workspace=JSON.parse(localStorage.getItem(WORKSPACE_KEY)||'null')}catch(e){}
-  if(!workspace)return false;
-  workspaceReady=false;
-  editingInvoiceId=workspace.editingInvoiceId||null;currentInvoiceId=editingInvoiceId;
-  const set=(id,value)=>{if($(id))$(id).value=value??''};
-  ['projectName','clientName','clientEmail','clientCc','clientBcc','invoiceDate','paymentTerms','serviceStartDate','serviceEndDate'].forEach(id=>set(id,workspace[id]));
-  set('invoiceNotes',workspace.notes);offWorkDates=new Set(workspace.offDates||[]);
-  $('invoiceItems').innerHTML='';(workspace.lines?.length?workspace.lines:[{}]).forEach(line=>{addItemRow(line);const row=document.querySelector('#invoiceItems .item-row:last-child');if(line.mileage&&row)row.dataset.mileage='true'});
-  $('hasMileage').checked=!!workspace.hasMileage;$('mileageBox').classList.toggle('hidden',!workspace.hasMileage);
-  set('mileageOneWay',workspace.oneWayMiles);set('mileageTrips',workspace.trips||2);$('billMileage').checked=!!workspace.billMileage;set('mileageBillRate',workspace.mileageBillRate);set('mileagePurpose',workspace.mileagePurpose||'Travel to client work');
-  $('jobCostsBox').classList.toggle('hidden',!workspace.jobCostsVisible);
-  set('costParking',workspace.parking);set('costTransit',workspace.transit);set('costLodging',workspace.lodging);set('costMeals',workspace.meals);set('costSupplies',workspace.supplies);set('costRental',workspace.rental);set('costNote',workspace.costNote);
-  renderWorkSchedule();recalcMileage();recalcInvoice();refreshClientLists();refreshItemSuggestions();
-  workspaceReady=true;if($('autosaveStatus'))$('autosaveStatus').textContent='Restored your automatically saved invoice.';return true;
 }
 function rememberPage(name){
   try{ localStorage.setItem('invoiceApp.lastPage',name); }catch(e){}
 }
 function hidePages(){
-  ['homePage','newInvoicePage','previewPage','detailPage','clientsPage','projectsPage','itemsPage','brainPage','clientDetailPage']
+  ['homePage','newInvoicePage','previewPage','detailPage','clientsPage','itemsPage','brainPage','clientDetailPage']
     .forEach(id=>$(id).classList.add('hidden'));
 }
 function resetNav(){
-  ['navInvoices','navNew','navPreview','navClients','navProjects','navItems','navBrain'].forEach(id=>$(id).classList.remove('active'));
+  ['navInvoices','navNew','navClients','navItems','navBrain'].forEach(id=>$(id).classList.remove('active'));
 }
 
-const MAIN_TABS=['home','new','preview','clients','projects','items','brain'];
+const MAIN_TABS=['home','new','clients','items','brain'];
 function rememberMainTab(name){
   if(MAIN_TABS.includes(name)){
     try{localStorage.setItem('invoiceApp.lastMainTab',name);}catch(e){}
@@ -751,9 +548,8 @@ function restoreMainTab(){
   let p='home';
   try{p=localStorage.getItem('invoiceApp.lastMainTab')||'home';}catch(e){}
   if(!MAIN_TABS.includes(p))p='home';
-  if(p==='new'||p==='preview'){
+  if(p==='new'){
     openNewInvoice();
-    if(p==='preview')showPage('preview');
     return;
   }
   showPage(p);
@@ -769,9 +565,7 @@ function showPage(name){
     $('newInvoicePage').classList.remove('hidden'); $('navNew').classList.add('active');
     $('pageTitle').textContent='New invoice'; $('pageSub').textContent='Who, what, and how much.';
   } else if(name==='preview'){
-    renderWorkspacePreview();
-    renderW9Status();
-    $('previewPage').classList.remove('hidden'); $('navPreview').classList.add('active');
+    $('previewPage').classList.remove('hidden'); $('navNew').classList.add('active');
     $('pageTitle').textContent='Preview'; $('pageSub').textContent='Check it before sending.';
   } else if(name==='detail'){
     $('detailPage').classList.remove('hidden');
@@ -779,10 +573,6 @@ function showPage(name){
     $('clientsPage').classList.remove('hidden'); $('navClients').classList.add('active');
     $('pageTitle').textContent='Clients'; $('pageSub').textContent='Everyone you invoice, automatically organized.';
     renderClients();
-  } else if(name==='projects'){
-    $('projectsPage').classList.remove('hidden'); $('navProjects').classList.add('active');
-    $('pageTitle').textContent='Projects'; $('pageSub').textContent='Reusable projects connected to clients and invoices.';
-    renderProjects();
   } else if(name==='items'){
     $('itemsPage').classList.remove('hidden'); $('navItems').classList.add('active');
     $('pageTitle').textContent='Services & Products'; $('pageSub').textContent='Your reusable services and products.';
@@ -796,28 +586,21 @@ function showPage(name){
   }
 }
 
-function openNewInvoice(forceNew=false){
+function openNewInvoice(){
   currentInvoiceId=null; editingInvoiceId=null;
-  if(forceNew)clearInvoiceWorkspace();
-  if(!forceNew&&restoreInvoiceWorkspace()){showPage('new');return}
-  workspaceReady=false;
-  $('clientName').value=''; $('clientEmail').value='';$('clientCc').value='';$('clientBcc').value=''; $('projectName').value=''; $('invoiceDate').value=today();
-  $('serviceStartDate').value='';$('serviceEndDate').value='';
-  offWorkDates=new Set();renderWorkSchedule();
+  $('clientName').value=''; $('clientEmail').value=''; $('projectName').value=''; $('invoiceDate').value=today();
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
-  $('mileageOneWay').value='';$('mileageTrips').value='2';
+  $('mileageFrom').value='Home';$('mileageTo').value='';$('mileageOneWay').value='';$('mileageTrips').value='2';
   $('billMileage').checked=false;$('mileageBillRate').value='0';$('mileagePurpose').value='Travel to client work';$('mileageTotal').textContent='0 mi';
   $('jobCostsBox').classList.add('hidden');
   ['costParking','costTransit','costLodging','costMeals','costSupplies','costRental','costNote'].forEach(id=>$(id).value='');
   $('invoiceItems').innerHTML='';
   addItemRow();
   refreshClientLists();
-  refreshProjectLists();
   refreshItemSuggestions();
   recalcInvoice();
-  workspaceReady=true;saveInvoiceWorkspace();
   showPage('new');
 }
 
@@ -835,19 +618,16 @@ function openItemPicker(){
 }
 function chooseSavedItem(id){
   const item=items.find(x=>x.id===id);if(!item)return;
-  const empty=[...document.querySelectorAll('#invoiceItems .item-row:not([data-mileage="true"])')].find(row=>!row.querySelector('.item-name').value.trim());
-  if(empty){empty.querySelector('.item-name').value=item.name;empty.querySelector('.item-rate').value=item.rate;recalcInvoice()}
-  else addItemRow({name:item.name,qty:1,rate:item.rate});
+  addItemRow({name:item.name,qty:1,rate:item.rate});
   closeModal();
 }
 
 function addItemRow(prefill={}){
   const row=document.createElement('div');
   row.className='item-row';
-  row.dataset.qtyMode=prefill.quantityMode||(Object.prototype.hasOwnProperty.call(prefill,'qty')?'manual':'auto');
   row.innerHTML=`
     <div><label>What did you do or sell?</label><input class="item-name" list="itemNames" value="${esc(prefill.name||'')}" placeholder="Service or product"></div>
-    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="1" value="${prefill.qty ?? 1}" oninput="markQuantityOverride(this);recalcInvoice()"></div>
+    <div><label>Qty</label><input class="item-qty" type="number" min="0" step="0.25" value="${prefill.qty ?? 1}" oninput="recalcInvoice()"></div>
     <div><label>Rate</label><input class="item-rate" type="number" min="0" step="0.01" value="${prefill.rate ?? ''}" oninput="recalcInvoice()"></div>
     <button class="remove" onclick="this.parentElement.remove();recalcInvoice()">×</button>`;
   const nameInput=row.querySelector('.item-name');
@@ -857,21 +637,17 @@ function addItemRow(prefill={}){
     recalcInvoice();
   });
   $('invoiceItems').appendChild(row);
-  if(row.dataset.qtyMode==='auto')syncWorkDayQuantity();
 }
 function readInvoiceItems(){
   return [...document.querySelectorAll('.item-row')].map(row=>({
     name:row.querySelector('.item-name').value.trim(),
     qty:Number(row.querySelector('.item-qty').value||0),
-    rate:Number(row.querySelector('.item-rate').value||0),
-    quantityMode:row.dataset.qtyMode||'manual',
-    mileage:row.dataset.mileage==='true'
+    rate:Number(row.querySelector('.item-rate').value||0)
   })).filter(x=>x.name && x.qty>0);
 }
 function recalcInvoice(){
   const total=readInvoiceItems().reduce((sum,x)=>sum+x.qty*x.rate,0);
   $('invoiceTotal').textContent=money(total);
-  scheduleWorkspaceSave();
   return total;
 }
 function refreshClientLists(){
@@ -882,74 +658,9 @@ function refreshClientLists(){
     if(match && !$('clientEmail').value) $('clientEmail').value=match.email||'';
   };
 }
-function learnProject(name,clientId=null,clientName=''){
-  name=String(name||'').trim();
-  if(!name||name.toLowerCase()==='untitled project')return null;
-  let project=projects.find(item=>item.name.trim().toLowerCase()===name.toLowerCase());
-  if(!project){project={id:uid(),name,clientId:clientId||null,clientName:clientName||'',archived:false,createdAt:new Date().toISOString()};projects.push(project)}
-  else {project.name=name;if(clientId)project.clientId=clientId;if(clientName)project.clientName=clientName}
-  return project;
-}
-function refreshProjectLists(){
-  const active=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name));
-  $('projectNames').innerHTML=active.map(project=>`<option value="${esc(project.name)}"></option>`).join('');
-  $('savedProjectSelect').innerHTML='<option value="">Choose a saved project…</option>'+active.map(project=>`<option value="${project.id}">${esc(project.name)}${project.clientName?` — ${esc(project.clientName)}`:''}</option>`).join('');
-}
-function chooseProjectFromSelect(id){if(id)chooseSavedProject(id)}
-function openProjectPicker(){
-  const active=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name));
-  if(!active.length){alert('No saved projects yet. Add one from Projects or enter a project name on this invoice.');return}
-  openModal('Choose project',active.map(project=>`<button class="secondary full" style="margin-top:8px;text-align:left" onclick="chooseSavedProject('${project.id}')"><strong>${esc(project.name)}</strong>${project.clientName?`<div class="meta">${esc(project.clientName)}</div>`:''}</button>`).join(''));
-}
-function chooseSavedProject(id){
-  const project=projects.find(item=>item.id===id);if(!project)return;
-  $('projectName').value=project.name;
-  if(project.clientId){
-    const client=clients.find(item=>String(item.id)===String(project.clientId));
-    if(client){$('clientName').value=client.name;if(!$('clientEmail').value)$('clientEmail').value=client.email||''}
-  }else if(project.clientName&&!$('clientName').value)$('clientName').value=project.clientName;
-  closeModal();scheduleWorkspaceSave();
-}
-function renderProjects(){
-  const q=($('projectSearch')?.value||'').toLowerCase(),showArchived=$('showArchivedProjects')?.checked||false;
-  const visible=projects.filter(project=>project.name.toLowerCase().includes(q)&&(showArchived||!project.archived)).sort((a,b)=>a.name.localeCompare(b.name));
-  $('savedProjectList').innerHTML=visible.length?visible.map(project=>{
-    const linked=invoices.filter(inv=>inv.projectName?.toLowerCase()===project.name.toLowerCase());
-    return `<div class="entry ${project.archived?'archived-entry':''}"><button onclick="editSavedProject('${project.id}')" aria-label="Edit ${esc(project.name)}"><div style="display:flex;justify-content:space-between;gap:12px"><div><div class="title">${esc(project.name)} ${project.archived?'<span class="no-tax-pill">Archived</span>':''}</div><div class="meta">${esc(project.clientName||'No client selected')} · ${linked.length} invoice${linked.length===1?'':'s'}</div></div><div class="money">${money(linked.reduce((sum,inv)=>sum+Number(inv.total||0),0))}</div></div></button></div>`;
-  }).join(''):'<div class="card empty">No projects here yet.</div>';
-}
-function openNewProject(){$('projectEditor').classList.remove('hidden');$('newProjectName').value='';$('newProjectClient').value=''}
-function saveNewProject(){
-  const name=$('newProjectName').value.trim(),clientName=$('newProjectClient').value.trim();
-  if(!name){alert('Add a project name.');return}
-  const client=clients.find(item=>item.name.toLowerCase()===clientName.toLowerCase());
-  const existing=projects.find(item=>item.name.toLowerCase()===name.toLowerCase());
-  if(existing){existing.archived=false;if(client){existing.clientId=client.id;existing.clientName=client.name}}
-  else learnProject(name,client?.id||null,client?.name||clientName);
-  persist();refreshProjectLists();$('projectEditor').classList.add('hidden');renderProjects();showToast(existing?'Existing project restored.':'Project saved.');
-}
-function editSavedProject(id){
-  const project=projects.find(item=>item.id===id);if(!project)return;
-  openModal('Edit project',`<label>Project name</label><input id="modalSavedProjectName" value="${esc(project.name)}"><label>Client (optional)</label><input id="modalSavedProjectClient" list="clientNames" value="${esc(project.clientName||'')}"><button class="primary full" style="margin-top:14px" onclick="saveSavedProject('${id}')">Save project</button><button class="secondary full" style="margin-top:8px" onclick="toggleArchiveProject('${id}')">${project.archived?'Restore project':'Archive project'}</button>`);
-}
-function saveSavedProject(id){
-  const project=projects.find(item=>item.id===id);if(!project)return;
-  const name=$('modalSavedProjectName').value.trim(),clientName=$('modalSavedProjectClient').value.trim();if(!name){alert('Add a project name.');return}
-  if(projects.some(item=>item.id!==id&&item.name.toLowerCase()===name.toLowerCase())){alert('A project with that name already exists.');return}
-  const client=clients.find(item=>item.name.toLowerCase()===clientName.toLowerCase());
-  project.name=name;project.clientId=client?.id||null;project.clientName=client?.name||clientName;
-  persist();refreshProjectLists();closeModal();renderProjects();showToast('Project updated.');
-}
-function toggleArchiveProject(id){
-  const project=projects.find(item=>item.id===id);if(!project)return;project.archived=!project.archived;
-  persist();refreshProjectLists();closeModal();renderProjects();showToast(project.archived?'Project archived.':'Project restored.');
-}
 function refreshItemSuggestions(){
-  const active=items.filter(item=>!item.archived).sort((a,b)=>a.name.localeCompare(b.name));
-  $('itemNames').innerHTML=active.map(item=>`<option value="${esc(item.name)}"></option>`).join('');
-  $('savedItemSelect').innerHTML='<option value="">Choose a service or product…</option>'+active.map(item=>`<option value="${item.id}">${esc(item.name)} — ${money(item.rate)}</option>`).join('');
+  // Suggestions intentionally disabled. Users choose from their own library.
 }
-function chooseItemFromSelect(id){if(id)chooseSavedItem(id);$('savedItemSelect').value=''}
 function addSavedItem(id){
   const x=items.find(i=>i.id===id);
   if(x)addItemRow({name:x.name,qty:1,rate:x.rate});
@@ -961,35 +672,16 @@ function upsertClient(name,email){
   return client;
 }
 function learnItems(lines){
-  lines.filter(line=>!line.mileage).forEach(line=>{
-    const name=String(line.name||'').trim();
-    if(!name)return;
-    const exists=items.some(item=>item.name.trim().toLowerCase()===name.toLowerCase());
-    if(!exists)items.push({id:uid(),name,rate:Number(line.rate||0),archived:false,createdAt:new Date().toISOString()});
-  });
-}
-function learnInvoiceReferences(invoice){
-  if(!invoice)return;
-  const name=String(invoice.clientName||invoice.name||'').trim();
-  const email=invoice.clientEmail||invoice.email||'';
-  const client=name?upsertClient(name,email):null;
-  learnProject(invoice.projectName,client?.id||invoice.clientId||null,name);
-  learnItems(invoice.lines||[]);
-  persist();refreshProjectLists();refreshItemSuggestions();
+  // The library is user-managed. Invoice creation does not add suggestions or usage counters.
 }
 function validateInvoice(requireEmail=false){
-  const name=$('clientName').value.trim(),recipientEmails=parseEmailList($('clientEmail').value),ccEmails=parseEmailList($('clientCc').value),bccEmails=parseEmailList($('clientBcc').value),lines=readInvoiceItems();
+  const name=$('clientName').value.trim(),email=$('clientEmail').value.trim(),lines=readInvoiceItems();
   if(!name){alert('Add the client name.');return null}
-  if(requireEmail&&!recipientEmails.length){alert('Add at least one recipient email so the invoice knows where to go.');return null}
-  const invalid=[...recipientEmails,...ccEmails,...bccEmails].filter(email=>!validEmail(email));
-  if(invalid.length){alert(`Check these email addresses:\n${invalid.join('\n')}`);return null}
-  const serviceStartDate=$('serviceStartDate').value,serviceEndDate=$('serviceEndDate').value;
-  if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return null}
-  const schedule=workScheduleFromForm();
+  if(requireEmail&&!email){alert('Add the client email so the invoice knows where to go.');return null}
   if(!lines.length){alert('Add at least one invoice line.');return null}
   const total=lines.reduce((sum,x)=>sum+x.qty*x.rate,0);
   if(total<=0){alert('The invoice total must be greater than zero.');return null}
-  return {name,email:recipientEmails[0]||'',recipientEmails,ccEmails,bccEmails,serviceStartDate,serviceEndDate,workDates:schedule.workDates,offDates:schedule.offDates,lines,total};
+  return {name,email,lines,total};
 }
 function makeInvoiceData(status){
   const v=validateInvoice(status==='sent');
@@ -997,16 +689,16 @@ function makeInvoiceData(status){
   const client=upsertClient(v.name,v.email);
   const number=String((Math.max(0,...invoices.map(i=>Number(i.number)||0))+1)).padStart(4,'0');
   const date=$('invoiceDate').value||today();
-  const schedule=invoiceDueSchedule(date,$('paymentTerms').value);
+  const terms=Number($('paymentTerms').value||0);
+  const due=new Date(date+'T12:00:00'); due.setDate(due.getDate()+terms);
   return {
     id:uid(),number,clientId:client.id,clientName:v.name,clientEmail:v.email,
-    recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
     projectName:$('projectName').value.trim()||'Untitled project',
-    date,dueDate:schedule.dueDate,serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms:schedule.terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
+    date,dueDate:due.toISOString().slice(0,10),terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
     total:v.total,status,createdAt:new Date().toISOString(),
     mileage:readMileageRecord(),
     jobCosts:readJobCosts(),
-    sentAt:status==='sent'?new Date().toISOString():null,viewedAt:null,paidAt:null,paidAmount:0,payments:[]
+    sentAt:status==='sent'?new Date().toISOString():null,viewedAt:null,paidAt:null,paidAmount:0
   };
 }
 
@@ -1022,7 +714,7 @@ function emitBrainEvent(type,inv,data={}){
     invoiceNumber:inv.number,
     clientName:inv.clientName,
     projectName:inv.projectName,
-    amount:Number(data.amount??inv.total??0),
+    amount:Number(inv.total||0),
     createdAt:new Date().toISOString(),
     data
   });
@@ -1046,19 +738,6 @@ function createPaidTaxRecord(inv){
   });
   persist();
 }
-function createPaymentTaxRecord(inv,payment){
-  if(!inv||!payment)return;
-  const key=`gross_receipts:${inv.id}:${payment.id}`;
-  if(taxRecords.some(record=>record.key===key))return;
-  taxRecords.unshift({
-    id:uid(),key,invoiceId:inv.id,paymentId:payment.id,
-    taxYear:Number(String(payment.paidAt||today()).slice(0,4)),
-    category:'Gross receipts or sales',scheduleMapping:'Schedule C, line 1 candidate',
-    amount:Number(payment.amount||0),recognizedAt:payment.paidAt||new Date().toISOString(),
-    source:'Invoice payment recorded',status:'recorded'
-  });
-  persist();
-}
 function removePaidTaxRecord(invoiceId){
   taxRecords=taxRecords.filter(record=>record.invoiceId!==invoiceId);
 }
@@ -1069,12 +748,10 @@ function rebuildBrainFromInvoices(){
     emitBrainEvent('invoice_created',inv,{unique:'created'});
     if(inv.sentAt)emitBrainEvent('invoice_sent',inv,{unique:'sent'});
     if(inv.viewedAt)emitBrainEvent('invoice_viewed',inv,{unique:'viewed'});
-    normalizeInvoicePayments(inv);
-    inv.payments.forEach(payment=>{
-      if(payment.excludeFromBrain)return;
-      emitBrainEvent('payment_received',inv,{unique:payment.id,amount:payment.amount,paymentId:payment.id});
-      createPaymentTaxRecord(inv,payment);
-    });
+    if(inv.paidAt||inv.status==='paid'){
+      emitBrainEvent('payment_received',inv,{unique:'paid'});
+      createPaidTaxRecord(inv);
+    }
   });
   persist();
   renderBrain();
@@ -1084,7 +761,6 @@ function brainEventLabel(type){
     invoice_created:'Invoice created',
     invoice_updated:'Invoice updated',
     invoice_sent:'Invoice sent',
-    invoice_resent:'Invoice resent',
     invoice_viewed:'Invoice viewed',
     payment_received:'Payment received'
   })[type]||type;
@@ -1131,22 +807,12 @@ function exportBrainEvents(){
 
 function saveInvoice(status){
   const inv=makeInvoiceData(status); if(!inv)return null;
-  let wasPreviouslySent=false;
   if(editingInvoiceId){
     const existing=invoices.find(i=>i.id===editingInvoiceId);
     if(existing){
-      if(paymentTotal(existing)>Number(inv.total||0)+0.001){
-        alert(`Invoice total cannot be less than the ${money(paymentTotal(existing))} already received.`);
-        return null;
-      }
-      wasPreviouslySent=!!existing.sentAt;
       inv.id=existing.id; inv.number=existing.number; inv.createdAt=existing.createdAt;
       inv.sentAt=existing.sentAt || (status==='sent'?new Date().toISOString():null);
-      inv.lastSentAt=existing.lastSentAt||null;inv.resendCount=Number(existing.resendCount||0);
-      if(status==='sent'&&wasPreviouslySent){inv.lastSentAt=new Date().toISOString();inv.resendCount+=1}
       inv.viewedAt=existing.viewedAt; inv.paidAt=existing.paidAt;
-      inv.payments=existing.payments||[];inv.paidAmount=paymentTotal(existing);
-      normalizeInvoicePayments(inv);
       inv.paidAmount=existing.paidAmount||0;
       const idx=invoices.findIndex(i=>i.id===editingInvoiceId);
       invoices[idx]=inv; currentInvoiceId=inv.id;
@@ -1155,221 +821,53 @@ function saveInvoice(status){
   } else {
     invoices.unshift(inv); currentInvoiceId=inv.id;
   }
-  learnProject(inv.projectName,inv.clientId,inv.clientName);learnItems(inv.lines);persist();refreshProjectLists();refreshItemSuggestions();
+  learnItems(inv.lines);persist();
   if(brainEvents.some(event=>event.invoiceId===inv.id&&event.type==='invoice_created')){
     emitBrainEvent('invoice_updated',inv,{unique:String(Date.now())});
   }else{
     emitBrainEvent('invoice_created',inv,{unique:'created'});
   }
-  if(status==='sent')emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
-  clearInvoiceWorkspace();workspaceReady=false;
+  if(status==='sent')emitBrainEvent('invoice_sent',inv,{unique:'sent'});
   return inv;
-}
-function workspacePreviewData(){
-  const date=$('invoiceDate').value||today();
-  const schedule=invoiceDueSchedule(date,$('paymentTerms').value);
-  const work=workScheduleFromForm(),lines=readInvoiceItems();
-  const existing=editingInvoiceId?invoices.find(inv=>inv.id===editingInvoiceId):null;
-  return {
-    id:existing?.id||'workspace-preview',number:existing?.number||'PREVIEW',clientName:$('clientName').value.trim()||'Client',clientEmail:parseEmailList($('clientEmail').value)[0]||'',recipientEmails:parseEmailList($('clientEmail').value),ccEmails:parseEmailList($('clientCc').value),bccEmails:parseEmailList($('clientBcc').value),
-    projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:$('serviceStartDate').value,serviceEndDate:$('serviceEndDate').value,workDates:work.workDates,offDates:work.offDates,
-    lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',mileage:readMileageRecord(),jobCosts:readJobCosts()
-  };
-}
-function renderWorkspacePreview(){$('previewCard').innerHTML=invoiceHTML(workspacePreviewData())}
-function openPreviewPage(){
-  if(!workspaceReady)openNewInvoice();
-  saveInvoiceWorkspace();showPage('preview');
 }
 function previewInvoice(){
   const v=validateInvoice(false); if(!v)return;
-  learnInvoiceReferences({name:v.name,email:v.email,projectName:$('projectName').value.trim(),lines:v.lines});
-  saveInvoiceWorkspace();
+  const date=$('invoiceDate').value||today();
+  const terms=Number($('paymentTerms').value||0);
+  const due=new Date(date+'T12:00:00');due.setDate(due.getDate()+terms);
+  $('previewCard').innerHTML=invoiceHTML({
+    number:'PREVIEW',clientName:v.name,clientEmail:v.email,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:due.toISOString().slice(0,10),
+    lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
+  });
   showPage('preview');
 }
-async function sendInvoice(){
-  const includeW9=$('includeW9')?.checked;
-  if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sending.');return}
+function sendInvoice(){
   const inv=saveInvoice('sent');if(!inv)return;
-  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
-  if(result==='cancelled')return;
+  openMail(inv);
   openInvoiceDetail(inv.id);
-  showToast(result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.');
 }
-async function shareInvoiceFromPreview(){
-  const includeW9=$('includeW9')?.checked;
-  if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sharing.');return}
-  const inv=saveInvoice('sent');if(!inv)return;
-  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
-  if(result==='downloaded')showToast('PDF downloaded. Choose the app where you want to send it.');
-  if(result!=='cancelled')openInvoiceDetail(inv.id);
-}
-function invoiceEmailSubject(inv){return `${inv.projectName||'Project'} — Invoice #${inv.number} from ${businessName()}`}
-function invoiceEmailBody(inv){
-  normalizeInvoiceContacts(inv);
-  const workDates=serviceDateLabel(inv);
-  const lineSummary=inv.lines.map(line=>`${line.qty} × ${line.name} at ${money(line.rate)} = ${money(line.qty*line.rate)}`).join('\n');
-  return `Hi ${inv.clientName},
+function openMail(inv){
+  const subject=encodeURIComponent(`${inv.projectName||'Project'} — Invoice #${inv.number} from ${businessName()}`);
+  const body=encodeURIComponent(
+`Hi ${inv.clientName},
 
 Please find invoice #${inv.number} for ${inv.projectName||'the project'} in the amount of ${money(inv.total)}.
 
-${workDates?`${workDates}\n\n`:''}${inv.dueDate?`Due: ${inv.dueDate}\n\n`:''}Invoice details:
-${lineSummary}
+Due: ${inv.dueDate}
 
-Total: ${money(inv.total)}
-
-Please see the attached invoice PDF.
+This prototype does not yet host invoices online, so use the invoice details in the app or attach a PDF after printing the invoice page.
 
 Thank you,
-${businessName()}`;
+${businessName()}`);
+  location.href=`mailto:${encodeURIComponent(inv.clientEmail)}?subject=${subject}&body=${body}`;
 }
-function buildMailtoURL(inv){
-  normalizeInvoiceContacts(inv);
-  const subject=encodeURIComponent(invoiceEmailSubject(inv));
-  const body=encodeURIComponent(invoiceEmailBody(inv));
-  const query=[`subject=${subject}`,`body=${body}`];
-  if(inv.ccEmails.length)query.push(`cc=${encodeMailboxes(inv.ccEmails)}`);
-  if(inv.bccEmails.length)query.push(`bcc=${encodeMailboxes(inv.bccEmails)}`);
-  const recipients=encodeMailboxes(inv.recipientEmails,inv.clientName);
-  return `mailto:${recipients}?${query.join('&')}`;
-}
-function contactNameForEmail(email,fallback=''){
-  if(fallback)return fallback;
-  return clients.find(client=>(client.email||'').toLowerCase()===String(email).toLowerCase())?.name||'';
-}
-function encodeMailboxes(emails,primaryName=''){
-  return emails.map((email,index)=>{
-    const name=contactNameForEmail(email,index===0?primaryName:'');
-    return encodeURIComponent(name?`${name.replace(/["<>]/g,'')} <${email}>`:email);
-  }).join(',');
-}
-function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
-function businessInitials(){
-  const words=businessName().trim().split(/\s+/).filter(Boolean);
-  if(words.length>1)return (words[0][0]+words[words.length-1][0]).toUpperCase();
-  return (words[0]||'MB').slice(0,2).toUpperCase();
-}
-function editBusinessName(){
-  openModal('Edit business name',`
-    <label>Business name</label>
-    <input id="modalBusinessName" value="${esc(businessName())}" placeholder="Your business name">
-    <div class="notice" style="margin-top:10px">This updates the FROM name and the initials shown on every invoice preview and PDF.</div>
-    <button class="primary full" style="margin-top:14px" onclick="saveBusinessName()">Save business name</button>`);
-  setTimeout(()=>$('modalBusinessName')?.focus(),0);
-}
-function saveBusinessName(){
-  const name=$('modalBusinessName').value.trim();
-  if(!name){alert('Enter your business name.');return}
-  localStorage.setItem('invoiceApp.businessName',name);
-  closeModal();
-  if(!$('previewPage').classList.contains('hidden'))renderWorkspacePreview();
-  if(!$('detailPage').classList.contains('hidden')&&currentInvoiceId)openInvoiceDetail(currentInvoiceId);
-  showToast('Business name updated.');
-}
-function loadW9Profile(){
-  try{return JSON.parse(localStorage.getItem(W9_PROFILE_KEY)||'{}')||{}}catch(e){return {}}
-}
-function w9Option(value,label,current){return `<option value="${value}" ${current===value?'selected':''}>${label}</option>`}
-function openW9Editor(){
-  const p=loadW9Profile(),classification=p.classification||'individual';
-  openModal('Set up W-9',`
-    <div class="notice">Uses the official IRS Form W-9 (Rev. March 2024). <a href="https://www.irs.gov/pub/irs-pdf/fw9.pdf" target="_blank" rel="noopener">View the IRS form</a></div>
-    <label>Legal name (line 1)</label><input id="w9LegalName" value="${esc(p.legalName||'')}" placeholder="Name shown on your tax return">
-    <label>Business or disregarded-entity name (line 2)</label><input id="w9BusinessName" value="${esc(p.businessName||businessName())}">
-    <label>Federal tax classification (line 3a)</label><select id="w9Classification">
-      ${w9Option('individual','Individual / sole proprietor',classification)}
-      ${w9Option('c','C corporation',classification)}
-      ${w9Option('s','S corporation',classification)}
-      ${w9Option('partnership','Partnership',classification)}
-      ${w9Option('trust','Trust / estate',classification)}
-      ${w9Option('llc','Limited liability company',classification)}
-      ${w9Option('other','Other',classification)}
-    </select>
-    <div class="row"><div><label>LLC classification, if applicable</label><select id="w9LlcClass">
-      <option value="">Choose C, S, or P</option>${w9Option('C','C',p.llcClass||'')}${w9Option('S','S',p.llcClass||'')}${w9Option('P','P',p.llcClass||'')}
-    </select></div><div><label>Other classification</label><input id="w9Other" value="${esc(p.other||'')}"></div></div>
-    <label><input id="w9ForeignOwnership" type="checkbox" ${p.foreignOwnership?'checked':''}> Check line 3b (foreign partners, owners, or beneficiaries)</label>
-    <div class="row"><div><label>Exempt payee code, if any</label><input id="w9ExemptPayee" value="${esc(p.exemptPayee||'')}"></div><div><label>FATCA exemption code, if any</label><input id="w9Fatca" value="${esc(p.fatca||'')}"></div></div>
-    <label>Address (line 5)</label><input id="w9Address" value="${esc(p.address||'')}" placeholder="Number, street, and apartment or suite">
-    <label>City, state, and ZIP code (line 6)</label><input id="w9CityStateZip" value="${esc(p.cityStateZip||'')}">
-    <label>Account number(s), optional</label><input id="w9Accounts" value="${esc(p.accounts||'')}">
-    <div class="row"><div><label>TIN type</label><select id="w9TinType"><option value="ssn">Social Security number</option><option value="ein">Employer identification number</option></select></div><div><label>TIN (not saved)</label><input id="w9Tin" inputmode="numeric" autocomplete="off" placeholder="9 digits"></div></div>
-    <label>Signature name (not saved)</label><input id="w9Signature" autocomplete="off" value="${esc(p.legalName||'')}">
-    <label><input id="w9Certify" type="checkbox"> I certify that the information and TIN are correct and authorize this electronic signature.</label>
-    <div class="row" style="margin-top:14px"><button class="secondary full" onclick="saveW9Details()">Save reusable details</button><button class="primary full" onclick="prepareW9()">Prepare official W-9</button></div>
-    <div class="notice" style="margin-top:10px">The app saves the reusable fields above only on this device. It does not save the TIN, signature, or generated signed W-9 after the page is closed.</div>`);
-}
-function collectW9Profile(){
-  return {legalName:$('w9LegalName').value.trim(),businessName:$('w9BusinessName').value.trim(),classification:$('w9Classification').value,llcClass:$('w9LlcClass').value,other:$('w9Other').value.trim(),foreignOwnership:$('w9ForeignOwnership').checked,exemptPayee:$('w9ExemptPayee').value.trim(),fatca:$('w9Fatca').value.trim(),address:$('w9Address').value.trim(),cityStateZip:$('w9CityStateZip').value.trim(),accounts:$('w9Accounts').value.trim()};
-}
-function storeW9Profile(profile){localStorage.setItem(W9_PROFILE_KEY,JSON.stringify(profile))}
-function saveW9Details(){
-  const profile=collectW9Profile();
-  if(!profile.legalName){alert('Add the legal name shown on your tax return.');return}
-  storeW9Profile(profile);preparedW9File=null;closeModal();renderW9Status();showToast('Reusable W-9 details saved on this device.');
-}
-function renderW9Status(){
-  const status=$('w9Status');if(!status)return;
-  const p=loadW9Profile();
-  status.textContent=preparedW9File?`W-9 ready: ${preparedW9File.name}`:(p.legalName?`Saved details for ${p.legalName}. Prepare the W-9 before sending.`:'W-9 not set up yet.');
-}
-function downloadPreparedW9(){
-  if(!preparedW9File){openW9Editor();showToast('Prepare your W-9 first.');return}
-  const url=URL.createObjectURL(preparedW9File),link=document.createElement('a');link.href=url;link.download=preparedW9File.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-async function prepareW9(){
-  const profile=collectW9Profile(),tin=$('w9Tin').value.replace(/\D/g,''),signature=$('w9Signature').value.trim(),tinType=$('w9TinType').value;
-  if(!profile.legalName||!profile.address||!profile.cityStateZip){alert('Add your legal name and complete mailing address.');return}
-  if(profile.classification==='llc'&&!profile.llcClass){alert('Choose C, S, or P for the LLC classification.');return}
-  if(profile.classification==='other'&&!profile.other){alert('Describe the other tax classification.');return}
-  if(tin.length!==9){alert('Enter the 9-digit TIN. It will not be saved.');return}
-  if(!signature||!$('w9Certify').checked){alert('Enter your signature name and check the certification box.');return}
-  if(!window.PDFLib){alert('The W-9 PDF library did not load. Check your internet connection and try again.');return}
-  try{
-    storeW9Profile(profile);
-    const template=await fetch('fw9.pdf').then(response=>{if(!response.ok)throw new Error('Official W-9 template unavailable.');return response.arrayBuffer()});
-    const pdf=await PDFLib.PDFDocument.load(template),form=pdf.getForm(),fields=form.getFields();
-    const find=suffix=>fields.find(field=>field.getName().endsWith(suffix));
-    const setText=(suffix,value)=>{const field=find(suffix);if(field&&value!=null)field.setText(String(value))};
-    setText('f1_01[0]',profile.legalName);setText('f1_02[0]',profile.businessName);setText('f1_03[0]',profile.llcClass);setText('f1_04[0]',profile.other);
-    setText('f1_05[0]',profile.exemptPayee);setText('f1_06[0]',profile.fatca);setText('f1_07[0]',profile.address);setText('f1_08[0]',profile.cityStateZip);setText('f1_10[0]',profile.accounts);
-    const classIndex={individual:0,c:1,s:2,partnership:3,trust:4,llc:5,other:6}[profile.classification];
-    const classBox=fields.find(field=>field.getName().endsWith(`c1_1[${classIndex}]`));if(classBox)classBox.check();
-    if(profile.foreignOwnership){const box=find('c1_2[0]');if(box)box.check()}
-    if(tinType==='ssn'){setText('f1_11[0]',tin.slice(0,3));setText('f1_12[0]',tin.slice(3,5));setText('f1_13[0]',tin.slice(5))}
-    else {setText('f1_14[0]',tin.slice(0,2));setText('f1_15[0]',tin.slice(2))}
-    form.flatten();
-    const font=await pdf.embedFont(PDFLib.StandardFonts.HelveticaOblique),page=pdf.getPages()[0];
-    page.drawText(signature,{x:128,y:188,size:10,font,color:PDFLib.rgb(0,0,0)});
-    page.drawText(new Date().toLocaleDateString(),{x:405,y:188,size:9,color:PDFLib.rgb(0,0,0)});
-    const bytes=await pdf.save(),safeName=profile.legalName.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')||'Taxpayer';
-    preparedW9File=new File([bytes],`W-9-${safeName}.pdf`,{type:'application/pdf'});
-    closeModal();renderW9Status();if($('includeW9'))$('includeW9').checked=true;showToast('Official W-9 prepared for this send.');
-  }catch(error){alert(`Could not prepare the W-9: ${error.message}`)}
-}
-function serviceDateLabel(inv){
-  const count=Array.isArray(inv.workDates)?inv.workDates.length:dateRangeISO(inv.serviceStartDate,inv.serviceEndDate).length;
-  const suffix=count?` · ${count} work day${count===1?'':'s'}`:'';
-  if(inv.serviceStartDate&&inv.serviceEndDate)return (inv.serviceStartDate===inv.serviceEndDate?`Work date ${inv.serviceStartDate}`:`Work dates ${inv.serviceStartDate} – ${inv.serviceEndDate}`)+suffix;
-  if(inv.serviceStartDate)return `Work starts ${inv.serviceStartDate}${suffix}`;
-  if(inv.serviceEndDate)return `Work ends ${inv.serviceEndDate}${suffix}`;
-  return '';
-}
-function invoiceEmailHTML(inv){
-  normalizeInvoiceContacts(inv);
-  const rows=[];
-  if(inv.recipientEmails.length)rows.push(inv.recipientEmails.map(esc).join('<br>'));
-  if(inv.ccEmails.length)rows.push(`<strong>CC:</strong> ${inv.ccEmails.map(esc).join(', ')}`);
-  return rows.join('<br>');
-}
 function invoiceHTML(inv){
-  normalizeInvoiceContacts(inv);
   const mileage=inv.mileage&&inv.mileage.enabled ? `
     <div class="invoice-notes" style="margin-top:14px">
       <div class="invoice-small-label">PRIVATE JOB RECORD · MILEAGE</div>
-      <strong>${Number(inv.mileage.totalMiles||0).toFixed(1)} business miles</strong><br>
-      ${esc(inv.mileage.purpose||'Business travel')}
+      <strong>${esc(inv.mileage.from||'Home')} → ${esc(inv.mileage.to||'Work')}</strong><br>
+      ${Number(inv.mileage.totalMiles||0).toFixed(1)} business miles · ${esc(inv.mileage.purpose||'Business travel')}
     </div>` : '';
   const jc=inv.jobCosts||{};
   const costTotal=['parking','transit','lodging','meals','supplies','rental'].reduce((s,k)=>s+Number(jc[k]||0),0);
@@ -1384,20 +882,20 @@ function invoiceHTML(inv){
       <div>
         <div class="invoice-doc-label">INVOICE #${esc(inv.number)}</div>
         <h2 class="invoice-project clickable" onclick="editProjectName('${inv.id}')">${esc(inv.projectName||'Untitled project')} ✎</h2>
-        <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div>
+        <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)} · Due ${esc(inv.dueDate)}</div>
       </div>
-      <div class="invoice-mark clickable" onclick="editBusinessName()" title="Edit business name">${esc(businessInitials())}</div>
+      <div class="invoice-mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div>
     </div>
 
     <div class="invoice-parties">
       <div class="clickable" onclick="openClientDetail('${inv.clientId}')">
         <div class="invoice-small-label">BILL TO</div>
         <div class="invoice-party-name">${esc(inv.clientName)}</div>
-        <div class="invoice-party-meta">${invoiceEmailHTML(inv)}</div>
+        <div class="invoice-party-meta">${esc(inv.clientEmail||'')}</div>
       </div>
-      <div class="invoice-from clickable" onclick="editBusinessName()">
+      <div class="invoice-from">
         <div class="invoice-small-label">FROM</div>
-        <div class="invoice-party-name">${esc(businessName())} ✎</div>
+        <div class="invoice-party-name">${esc(businessName())}</div>
       </div>
     </div>
 
@@ -1417,14 +915,11 @@ function invoiceHTML(inv){
     <div class="invoice-footer">Thank you for your business.</div>
   </div>`;
 }
-async function sendCurrentInvoice(){
+function sendCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  const result=await shareInvoicePDF(inv);if(result==='cancelled')return;
-  const wasPreviouslySent=!!inv.sentAt,now=new Date().toISOString();
-  if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
+  if(!inv.sentAt)inv.sentAt=new Date().toISOString();
   if(inv.status==='draft')inv.status='sent';
-  persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
-  openInvoiceDetail(inv.id);showToast(result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.');
+  persist();emitBrainEvent('invoice_sent',inv,{unique:'sent'});openMail(inv);openInvoiceDetail(inv.id);
 }
 function markViewed(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
@@ -1434,40 +929,11 @@ function markViewed(){
 }
 function markPaid(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  const balance=invoiceBalance(inv);if(balance<=0)return;
-  addPayment(inv,{amount:balance,paidAt:new Date().toISOString(),method:'Marked paid',reference:'',notes:''});
-}
-
-function togglePaymentEditor(){
-  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv||invoiceBalance(inv)<=0)return;
-  $('paymentEditor').classList.toggle('hidden');
-  $('paymentAmount').value=invoiceBalance(inv).toFixed(2);
-  $('paymentDate').value=today();
-  $('paymentMethod').value='';$('paymentReference').value='';$('paymentNotes').value='';
-  $('excludePaymentFromBrain').checked=false;
-}
-function addPayment(inv,payment){
-  normalizeInvoicePayments(inv);
-  const amount=Number(payment.amount||0),balance=invoiceBalance(inv);
-  if(!Number.isFinite(amount)||amount<=0)throw new Error('Payment amount must be greater than zero.');
-  if(amount>balance+0.001)throw new Error(`Payment cannot exceed the remaining balance of ${money(balance)}.`);
-  const saved={id:uid(),amount,paidAt:payment.paidAt||new Date().toISOString(),method:payment.method||'',reference:payment.reference||'',notes:payment.notes||'',excludeFromBrain:!!payment.excludeFromBrain};
-  inv.payments.push(saved);inv.paidAmount=paymentTotal(inv);
-  if(invoiceBalance(inv)<=0.001){inv.status='paid';inv.paidAt=saved.paidAt}
-  else {inv.status='partial';inv.paidAt=null}
+  inv.status='paid';inv.paidAt=new Date().toISOString();inv.paidAmount=inv.total;
   persist();
-  if(!saved.excludeFromBrain){
-    emitBrainEvent('payment_received',inv,{unique:saved.id,amount:saved.amount,paymentId:saved.id});
-    createPaymentTaxRecord(inv,saved);
-  }
-  openInvoiceDetail(inv.id);showToast(`Payment of ${money(saved.amount)} recorded.`);
-}
-function recordPayment(){
-  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  try{
-    const date=$('paymentDate').value||today();
-    addPayment(inv,{amount:$('paymentAmount').value,paidAt:new Date(date+'T12:00:00').toISOString(),method:$('paymentMethod').value.trim(),reference:$('paymentReference').value.trim(),notes:$('paymentNotes').value.trim(),excludeFromBrain:$('excludePaymentFromBrain').checked});
-  }catch(error){alert(error.message)}
+  emitBrainEvent('payment_received',inv,{unique:'paid'});
+  createPaidTaxRecord(inv);
+  openInvoiceDetail(inv.id);
 }
 
 function duplicateCurrentInvoice(){
@@ -1477,14 +943,10 @@ function duplicateCurrentInvoice(){
   copy.number=nextInvoiceNumber();
   copy.status='draft';
   copy.createdAt=new Date().toISOString();
-  copy.sentAt=null;copy.viewedAt=null;copy.paidAt=null;copy.paidAmount=0;copy.payments=[];
+  copy.sentAt=null;copy.viewedAt=null;copy.paidAt=null;copy.paidAmount=0;
   copy.date=today();
-  if(source.dueDate){
-    const days=Math.max(0,Math.round((new Date(source.dueDate)-new Date(source.date))/86400000));
-    copy.dueDate=addDays(copy.date,days);
-  }else{
-    copy.dueDate='';copy.terms=null;
-  }
+  const days=Math.max(0,Math.round((new Date(source.dueDate)-new Date(source.date))/86400000)||30);
+  copy.dueDate=addDays(copy.date,days);
   invoices.unshift(copy);
   persist();
   emitBrainEvent('invoice_created',copy,{unique:'created'});
@@ -1512,10 +974,9 @@ function deleteCurrentInvoice(){
 }
 function effectiveStatus(inv){
   if(inv.status==='cancelled')return 'cancelled';
-  const paid=paymentTotal(inv),balance=invoiceBalance(inv);
-  if(paid>0&&balance>0)return 'partial';
-  if((paid>0&&balance<=0)||inv.status==='paid')return 'paid';
-  const overdue=inv.dueDate&&(new Date(inv.dueDate+'T23:59:59')<new Date());
+  if(inv.status==='partial')return 'partial';
+  if(inv.status==='paid')return 'paid';
+  const overdue=(new Date(inv.dueDate+'T23:59:59')<new Date());
   if(overdue)return 'overdue';
   if(inv.viewedAt)return 'viewed';
   if(inv.sentAt)return 'sent';
@@ -1553,17 +1014,16 @@ function renderHome(){
 }
 function renderStats(){
   const now=new Date();
-  const paidThisMonth=invoices.flatMap(i=>normalizeInvoicePayments(i).payments).filter(p=>p.paidAt&&new Date(p.paidAt).getMonth()===now.getMonth()&&new Date(p.paidAt).getFullYear()===now.getFullYear()).reduce((s,p)=>s+Number(p.amount||0),0);
-  const overdue=invoices.filter(i=>effectiveStatus(i)==='overdue').reduce((s,i)=>s+invoiceBalance(i),0);
-  const outstanding=invoices.filter(i=>['sent','viewed','overdue','partial'].includes(effectiveStatus(i))).reduce((s,i)=>s+invoiceBalance(i),0);
+  const paidThisMonth=invoices.filter(i=>i.status==='paid'&&i.paidAt&&new Date(i.paidAt).getMonth()===now.getMonth()&&new Date(i.paidAt).getFullYear()===now.getFullYear()).reduce((s,i)=>s+i.total,0);
+  const overdue=invoices.filter(i=>effectiveStatus(i)==='overdue').reduce((s,i)=>s+(i.total-(i.paidAmount||0)),0);
+  const outstanding=invoices.filter(i=>['sent','viewed','overdue'].includes(effectiveStatus(i))).reduce((s,i)=>s+(i.total-(i.paidAmount||0)),0);
   $('statOverdue').textContent=money(overdue);
   $('statOutstanding').textContent=money(outstanding);
   $('statPaidMonth').textContent=money(paidThisMonth);
 }
 
 function invoiceItemSummary(inv){
-  const invoiceLines=inv.lines||inv.items||[];
-  const lines=invoiceLines.slice(0,3);
+  const lines=(inv.items||[]).slice(0,3);
   if(!lines.length)return '<div class="meta" style="margin-top:7px">No line items</div>';
   const rows=lines.map(line=>{
     const lineTotal=Number(line.qty||0)*Number(line.rate||0);
@@ -1572,7 +1032,7 @@ function invoiceItemSummary(inv){
       <strong>${money(lineTotal)}</strong>
     </div>`;
   }).join('');
-  const more=invoiceLines.length-lines.length;
+  const more=(inv.items||[]).length-lines.length;
   return `<div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--line)">${rows}${more>0?`<div class="meta" style="margin-top:5px">+${more} more item${more===1?'':'s'}</div>`:''}</div>`;
 }
 
@@ -1588,11 +1048,11 @@ function renderInvoices(){
       <div style="display:flex;justify-content:space-between;gap:10px">
         <div style="min-width:0;flex:1">
           <div class="title">${esc(inv.projectName||'Untitled project')}</div>
-          <div class="meta">${esc(inv.clientName)} · #${esc(inv.number)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}</div>
+          <div class="meta">${esc(inv.clientName)} · #${esc(inv.number)} · Due ${esc(inv.dueDate)}</div>
           ${statusLabel(inv)}
           ${invoiceItemSummary(inv)}
         </div>
-        <div class="money">${status==='partial'?`${money(invoiceBalance(inv))}<div class="meta">remaining</div>`:money(inv.total)}</div>
+        <div class="money">${money(inv.total)}</div>
       </div></button>`;
     $('invoiceList').appendChild(e);
   });
@@ -1604,27 +1064,18 @@ function openInvoiceDetail(id){
   $('pageSub').textContent=`${inv.clientName} · Invoice #${inv.number}`;
   $('detailCard').innerHTML=invoiceHTML(inv)+timelineHTML(inv);
   showPage('detail');
-  $('paymentEditor').classList.add('hidden');
-  $('recordPaymentButton').textContent=invoiceBalance(inv)>0?'Record payment':'Paid in full';
-  $('recordPaymentButton').disabled=invoiceBalance(inv)<=0;
-  $('resendInvoiceButton').textContent=inv.sentAt?'Resend by email':'Send by email';
   $('pageTitle').textContent=inv.projectName||'Untitled project';
   $('pageSub').textContent=`${inv.clientName} · Invoice #${inv.number}`;
 }
 function timelineHTML(inv){
-  normalizeInvoicePayments(inv);
   const rows=[
     ['Created',inv.createdAt],
     ['Sent',inv.sentAt],
-    ['Last resent',inv.lastSentAt],
     ['Viewed',inv.viewedAt],
-    ['Paid in full',inv.paidAt]
+    ['Paid',inv.paidAt]
   ];
-  const payments=inv.payments.map(payment=>`<div class="timeline-row"><div class="dot on"></div><div><div class="event">Payment · ${money(payment.amount)}</div><div class="when">${new Date(payment.paidAt).toLocaleString()}${payment.method?' · '+esc(payment.method):''}${payment.reference?' · '+esc(payment.reference):''}</div>${payment.excludeFromBrain?'<div class="no-tax-pill" style="margin-top:6px">Not added to Financial Brain</div>':''}${payment.notes?`<div class="meta">${esc(payment.notes)}</div>`:''}</div></div>`).join('');
-  return `<div class="card flatcard" style="margin-top:12px"><div class="row"><div><div class="label">Paid</div><div class="value">${money(paymentTotal(inv))}</div></div><div><div class="label">Balance</div><div class="value">${money(invoiceBalance(inv))}</div></div></div></div>
-  <div class="section-title">Timeline</div><div class="timeline">
+  return `<div class="section-title">Timeline</div><div class="timeline">
     ${rows.map(([name,time])=>`<div class="timeline-row"><div class="dot ${time?'on':''}"></div><div><div class="event">${name}</div><div class="when">${time?new Date(time).toLocaleString():'Not yet'}</div></div></div>`).join('')}
-    ${payments}
   </div>
   <div class="notice" style="margin-top:16px">“Viewed” is manual in this static prototype. Automatic first-view tracking requires a hosted invoice link and a small backend.</div>`;
 }
@@ -1679,7 +1130,7 @@ function openClientDetail(id){
   $('clientInvoiceList').innerHTML='';
   invs.forEach(inv=>{
     const e=document.createElement('div');e.className='entry';
-    e.innerHTML=`<button onclick='openInvoiceDetail(${JSON.stringify(inv.id)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">#${esc(inv.number)}</div>${inv.dueDate?`<div class="meta">Due ${esc(inv.dueDate)}</div>`:''}${statusLabel(inv)}</div><div class="money">${money(inv.total)}</div></div></button>`;
+    e.innerHTML=`<button onclick='openInvoiceDetail(${JSON.stringify(inv.id)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">#${esc(inv.number)}</div><div class="meta">Due ${esc(inv.dueDate)}</div>${statusLabel(inv)}</div><div class="money">${money(inv.total)}</div></div></button>`;
     $('clientInvoiceList').appendChild(e);
   });
   $('pageTitle').textContent=c.name;$('pageSub').textContent='Client history';
@@ -1732,7 +1183,7 @@ function newInvoiceForClient(id){
     email:client.email||''
   };
 
-  openNewInvoice(true);
+  openNewInvoice();
 
   // Fill the fields after the New Invoice page has been opened.
   requestAnimationFrame(()=>{
@@ -1882,13 +1333,9 @@ function editClient(id){
 }
 function saveClientEdit(id){
   const c=clients.find(x=>x.id===id);if(!c)return;
-  const oldName=c.name,oldEmail=c.email||'';
+  const oldName=c.name;
   c.name=$('modalClientName').value.trim()||c.name;c.email=$('modalClientEmail').value.trim();
-  invoices.filter(i=>i.clientId===id).forEach(i=>{
-    normalizeInvoiceContacts(i);i.clientName=c.name;i.clientEmail=c.email;
-    const secondary=i.recipientEmails.filter(email=>email.toLowerCase()!==oldEmail.toLowerCase()&&email.toLowerCase()!==c.email.toLowerCase());
-    i.recipientEmails=c.email?[c.email,...secondary]:secondary;
-  });
+  invoices.filter(i=>i.clientId===id).forEach(i=>{i.clientName=c.name;i.clientEmail=c.email});
   persist();closeModal();
   if(!$('clientDetailPage').classList.contains('hidden'))openClientDetail(id);
   else renderClients();
@@ -1933,17 +1380,9 @@ function editInvoiceLine(invoiceId,index){
   const line=inv.lines[index];
   openModal('Edit invoice line',`
     <label>Service or product</label><input id="modalLineName" value="${esc(line.name)}">
-    <div class="row"><div><label>Quantity</label><input id="modalLineQty" type="number" min="0" step="1" value="${line.qty}"></div>
+    <div class="row"><div><label>Quantity</label><input id="modalLineQty" type="number" min="0" step="0.25" value="${line.qty}"></div>
     <div><label>Rate</label><input id="modalLineRate" type="number" min="0" step="0.01" value="${line.rate}"></div></div>
-    <div class="row" style="margin-top:14px"><button class="secondary full" onclick="saveInvoiceLineToLibrary()">Save to Services & Products</button><button class="primary full" onclick="saveInvoiceLine('${invoiceId}',${index})">Save line</button></div>`);
-}
-function saveInvoiceLineToLibrary(){
-  const name=$('modalLineName').value.trim(),rate=Number($('modalLineRate').value||0);
-  if(!name){alert('Add a service or product name first.');return}
-  const existing=items.find(item=>item.name.trim().toLowerCase()===name.toLowerCase());
-  if(existing){existing.name=name;existing.rate=rate;existing.archived=false}
-  else items.push({id:uid(),name,rate,archived:false,createdAt:new Date().toISOString()});
-  persist();renderItems();refreshItemSuggestions();showToast(existing?'Saved item and updated its rate.':'Saved item to Services & Products.');
+    <button class="primary full" style="margin-top:14px" onclick="saveInvoiceLine('${invoiceId}',${index})">Save line</button>`);
 }
 function saveInvoiceLine(invoiceId,index){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv||!inv.lines[index])return;
@@ -1953,50 +1392,14 @@ function saveInvoiceLine(invoiceId,index){
 }
 function editInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
-  const standardTerms=['0','7','15','30','45','60'];
-  const selectedTerms=inv.terms==null?(inv.dueDate?'custom':''):(standardTerms.includes(String(inv.terms))?String(inv.terms):'custom');
   openModal('Edit dates',`
-    <label>Invoice date</label><input id="modalInvoiceDate" type="date" value="${inv.date}" onchange="syncModalDueDate()">
-    <label>Payment terms (optional)</label>
-    <select id="modalPaymentTerms" onchange="syncModalDueDate()">
-      <option value="" ${selectedTerms===''?'selected':''}>No due date</option>
-      <option value="0" ${selectedTerms==='0'?'selected':''}>Due on receipt</option>
-      <option value="7" ${selectedTerms==='7'?'selected':''}>Net 7</option>
-      <option value="15" ${selectedTerms==='15'?'selected':''}>Net 15</option>
-      <option value="30" ${selectedTerms==='30'?'selected':''}>Net 30</option>
-      <option value="45" ${selectedTerms==='45'?'selected':''}>Net 45</option>
-      <option value="60" ${selectedTerms==='60'?'selected':''}>Net 60</option>
-      <option value="custom" ${selectedTerms==='custom'?'selected':''}>Custom due date</option>
-    </select>
-    <label>Due date</label><input id="modalDueDate" type="date" value="${inv.dueDate||''}">
-    <div class="row"><div><label>Work starts</label><input id="modalServiceStartDate" type="date" value="${inv.serviceStartDate||''}"></div>
-    <div><label>Work ends</label><input id="modalServiceEndDate" type="date" value="${inv.serviceEndDate||''}"></div></div>
+    <label>Invoice date</label><input id="modalInvoiceDate" type="date" value="${inv.date}">
+    <label>Due date</label><input id="modalDueDate" type="date" value="${inv.dueDate}">
     <button class="primary full" style="margin-top:14px" onclick="saveInvoiceDates('${invoiceId}')">Save dates</button>`);
-  syncModalDueDate();
-}
-function syncModalDueDate(){
-  const terms=$('modalPaymentTerms').value,date=$('modalInvoiceDate').value||today(),dueInput=$('modalDueDate');
-  const custom=terms==='custom';
-  dueInput.disabled=!custom;
-  if(!custom)dueInput.value=invoiceDueSchedule(date,terms).dueDate;
 }
 function saveInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
-  const serviceStartDate=$('modalServiceStartDate').value,serviceEndDate=$('modalServiceEndDate').value;
-  if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return}
-  inv.date=$('modalInvoiceDate').value||inv.date;
-  const selectedTerms=$('modalPaymentTerms').value;
-  if(selectedTerms==='custom'){
-    inv.dueDate=$('modalDueDate').value;
-    inv.terms=inv.dueDate?Math.max(0,Math.round((new Date(inv.dueDate)-new Date(inv.date))/86400000)):null;
-  }else{
-    const schedule=invoiceDueSchedule(inv.date,selectedTerms);
-    inv.dueDate=schedule.dueDate;inv.terms=schedule.terms;
-  }
-  inv.serviceStartDate=serviceStartDate;inv.serviceEndDate=serviceEndDate;
-  const calendarDates=dateRangeISO(serviceStartDate,serviceEndDate);
-  inv.offDates=(inv.offDates||[]).filter(date=>calendarDates.includes(date));
-  inv.workDates=calendarDates.filter(date=>!inv.offDates.includes(date));
+  inv.date=$('modalInvoiceDate').value||inv.date;inv.dueDate=$('modalDueDate').value||inv.dueDate;
   persist();closeModal();openInvoiceDetail(invoiceId);
 }
 function editInvoiceNotes(invoiceId){
@@ -2013,25 +1416,13 @@ function editCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
   if(!inv.projectName)inv.projectName='Untitled project';
   editingInvoiceId=inv.id;
-  normalizeInvoiceContacts(inv);
-  $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
-  $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=inv.terms==null?(inv.dueDate?'30':''):String(inv.terms);$('invoiceNotes').value=inv.notes||'';
-  offWorkDates=new Set(inv.offDates||[]);
-  $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));
-  if(inv.mileage?.billClient){
-    const mileageRow=[...document.querySelectorAll('.item-row')].find(row=>row.querySelector('.item-name').value.trim().toLowerCase()==='mileage');
-    if(mileageRow)mileageRow.dataset.mileage='true';
-  }
-  renderWorkSchedule();loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
-  recalcInvoice();refreshClientLists();refreshItemSuggestions();workspaceReady=true;saveInvoiceWorkspace();showPage('new');
+  $('clientName').value=inv.clientName;$('clientEmail').value=inv.clientEmail||'';$('projectName').value=inv.projectName||'';
+  $('invoiceDate').value=inv.date;$('paymentTerms').value=String(inv.terms||30);$('invoiceNotes').value=inv.notes||'';
+  loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
+  $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
 }
 
 function pdfSafe(text){return String(text||'').replace(/[^\x20-\x7E]/g,' ')}
-function invoiceFileName(inv){
-  const project=String(inv.projectName||'Project').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')||'Project';
-  const date=String(inv.date||today()).replace(/[^0-9-]/g,'');
-  return `${project}-${date}-Invoice-${inv.number}.pdf`;
-}
 function buildInvoicePDF(inv){
   if(!window.jspdf?.jsPDF){alert('The PDF library did not load. Check your internet connection and try again.');return null}
   const {jsPDF}=window.jspdf;
@@ -2040,19 +1431,18 @@ function buildInvoicePDF(inv){
   doc.setFillColor(17,24,39);doc.rect(0,0,W,126,'F');
   doc.setFillColor(61,91,190);doc.circle(W-64,58,30,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
-  doc.text(pdfSafe(businessInitials()),W-68,59);
+  doc.text(pdfSafe(businessName()).slice(0,2).toUpperCase(),W-68,59);
   doc.setFontSize(9);doc.text(`INVOICE #${pdfSafe(inv.number)}`,margin,36);
   doc.setFontSize(24);doc.setFont('helvetica','bold');
   doc.text(pdfSafe(inv.projectName||'Untitled project').slice(0,36),margin,70);
   doc.setFontSize(10);doc.setFont('helvetica','normal');
-  doc.text(`${pdfSafe(inv.date)}${inv.dueDate?`  |  Due ${pdfSafe(inv.dueDate)}`:''}`,margin,90);
-  if(serviceDateLabel(inv)){doc.setFontSize(9);doc.text(pdfSafe(serviceDateLabel(inv)),margin,106)}
+  doc.text(`${pdfSafe(inv.date)}  |  Due ${pdfSafe(inv.dueDate)}`,margin,94);
 
   doc.setTextColor(31,41,55);doc.setFont('helvetica','bold');doc.setFontSize(9);
   doc.text('BILL TO',margin,145);
   doc.setFontSize(16);doc.text(pdfSafe(inv.clientName),margin,168);
   doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(91,99,112);
-  doc.text(inv.recipientEmails.map(pdfSafe).slice(0,3),margin,186);
+  doc.text(pdfSafe(inv.clientEmail||''),margin,186);
 
   let y=230;
   doc.setFillColor(244,246,248);doc.roundedRect(margin,y-24,W-margin*2,28,6,6,'F');
@@ -2084,19 +1474,13 @@ function buildInvoicePDF(inv){
   doc.text('Thank you for your business.',margin,H-28);
   return doc;
 }
-async function shareInvoicePDF(inv,attachments=[]){
+async function shareInvoicePDF(inv){
   const doc=buildInvoicePDF(inv);if(!doc)return;
-  const blob=doc.output('blob');const file=new File([blob],invoiceFileName(inv),{type:'application/pdf'});
-  const files=[file,...attachments];
-  if(navigator.canShare?.({files})&&navigator.share){
-    try{await navigator.share({files,title:invoiceEmailSubject(inv),text:invoiceEmailBody(inv)});return 'shared'}catch(e){if(e.name==='AbortError')return 'cancelled'}
+  const blob=doc.output('blob');const file=new File([blob],`Invoice-${inv.number}.pdf`,{type:'application/pdf'});
+  if(navigator.canShare?.({files:[file]})&&navigator.share){
+    try{await navigator.share({files:[file],title:`Invoice #${inv.number}`,text:`Invoice for ${inv.clientName}`});return}catch(e){if(e.name==='AbortError')return}
   }
-  doc.save(invoiceFileName(inv));
-  return 'downloaded';
-}
-function downloadInvoicePDF(inv){
-  const doc=buildInvoicePDF(inv);if(!doc)return false;
-  doc.save(invoiceFileName(inv));return true;
+  doc.save(`Invoice-${inv.number}.pdf`);
 }
 function shareCurrentPDF(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(inv)shareInvoicePDF(inv);
@@ -2112,8 +1496,8 @@ function saveDraftAndOpen(){
 
 function editProjectName(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
-  const options=projects.filter(project=>!project.archived).sort((a,b)=>a.name.localeCompare(b.name))
-    .map(project=>`<option value="${esc(project.name)}"></option>`).join('');
+  const options=[...new Set(invoices.map(i=>i.projectName).filter(Boolean))]
+    .sort().map(x=>`<option value="${esc(x)}"></option>`).join('');
   openModal('Edit project name',`
     <label>Project name</label>
     <input id="modalProjectName" list="modalProjectNames" value="${esc(inv.projectName||'')}">
@@ -2124,7 +1508,7 @@ function editProjectName(invoiceId){
 function saveProjectName(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
   inv.projectName=$('modalProjectName').value.trim()||'Untitled project';
-  learnProject(inv.projectName,inv.clientId,inv.clientName);persist();refreshProjectLists();closeModal();openInvoiceDetail(invoiceId);
+  persist();closeModal();openInvoiceDetail(invoiceId);
 }
 
 
@@ -2159,9 +1543,9 @@ function invoiceDocumentHTML(inv){
   @media(max-width:600px){.page{width:100%;margin:0;border-radius:0}.hero,.body{padding:22px}.head,.row{grid-template-columns:minmax(0,1fr) 42px 80px 92px;font-size:12px}h1{font-size:31px}}
   </style></head><body>
   <div class="page">
-    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div></div><div class="mark">${esc(businessInitials())}</div></div>
+    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)} · Due ${esc(inv.dueDate)}</div></div><div class="mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div></div>
     <div class="body">
-      <div class="parties"><div><div class="small">BILL TO</div><div class="name">${esc(inv.clientName)}</div><div class="muted">${invoiceEmailHTML(inv)}</div></div><div class="right"><div class="small">FROM</div><div class="name">${esc(businessName())}</div></div></div>
+      <div class="parties"><div><div class="small">BILL TO</div><div class="name">${esc(inv.clientName)}</div><div class="muted">${esc(inv.clientEmail||'')}</div></div><div class="right"><div class="small">FROM</div><div class="name">${esc(businessName())}</div></div></div>
       <div class="head"><div>Description</div><div>Qty</div><div>Rate</div><div>Amount</div></div>
       ${rows}
       <div class="total"><span>Total</span><strong>${money(inv.total)}</strong></div>
@@ -2190,10 +1574,8 @@ function toggleMileage(){
 function recalcMileage(){
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
-  const workDays=Math.max(1,workScheduleFromForm().workDates.length);
-  const total=oneWay*trips*workDays;
+  const total=oneWay*trips;
   $('mileageTotal').textContent=`${total.toFixed(1)} mi`;
-  $('mileageFormula').textContent=`${oneWay.toFixed(1)} miles × ${trips} trip${trips===1?'':'s'} × ${workDays} work day${workDays===1?'':'s'}`;
   syncMileageLine();
 }
 function findMileageLine(){
@@ -2205,16 +1587,15 @@ function syncMileageLine(){
     if(existing)existing.remove();
     recalcInvoice();return;
   }
-  const miles=Number($('mileageOneWay').value||0)*Math.max(1,Number($('mileageTrips').value||1))*Math.max(1,workScheduleFromForm().workDates.length);
+  const miles=Number($('mileageOneWay').value||0)*Math.max(1,Number($('mileageTrips').value||1));
   const rate=Number($('mileageBillRate').value||0);
   if(!existing){
     addItemRow({name:'Mileage',qty:miles||1,rate});
     const rows=[...document.querySelectorAll('.item-row')];
     rows[rows.length-1].dataset.mileage='true';
-    rows[rows.length-1].dataset.qtyMode='auto';
   }else{
     existing.querySelector('.item-name').value='Mileage';
-    if(existing.dataset.qtyMode!=='manual')existing.querySelector('.item-qty').value=miles||1;
+    existing.querySelector('.item-qty').value=miles||1;
     existing.querySelector('.item-rate').value=rate;
   }
   recalcInvoice();
@@ -2223,20 +1604,20 @@ function readMileageRecord(){
   if(!$('hasMileage').checked)return {enabled:false};
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
-  const workDays=Math.max(1,workScheduleFromForm().workDates.length);
   return {
-    enabled:true,
-    oneWayMiles:oneWay,trips,workDays,totalMiles:oneWay*trips*workDays,purpose:$('mileagePurpose').value.trim(),
+    enabled:true,from:$('mileageFrom').value.trim(),to:$('mileageTo').value.trim(),
+    oneWayMiles:oneWay,trips,totalMiles:oneWay*trips,purpose:$('mileagePurpose').value.trim(),
     billClient:$('billMileage').checked,billingRate:Number($('mileageBillRate').value||0)
   };
 }
 function loadMileageRecord(m){
   const enabled=!!m?.enabled;$('hasMileage').checked=enabled;$('mileageBox').classList.toggle('hidden',!enabled);
+  $('mileageFrom').value=m?.from||'Home';$('mileageTo').value=m?.to||'';
   $('mileageOneWay').value=m?.oneWayMiles||'';$('mileageTrips').value=m?.trips||2;
   $('mileagePurpose').value=m?.purpose||'Travel to client work';
   $('billMileage').checked=!!m?.billClient;$('mileageBillRate').value=m?.billingRate||0;recalcMileage();
 }
-function toggleJobCosts(){$('jobCostsBox').classList.toggle('hidden');scheduleWorkspaceSave()}
+function toggleJobCosts(){$('jobCostsBox').classList.toggle('hidden')}
 function readJobCosts(){
   return {
     parking:Number($('costParking').value||0),transit:Number($('costTransit').value||0),
@@ -2277,13 +1658,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 }
 
-window.addEventListener('DOMContentLoaded',()=>{
-  const editor=$('newInvoicePage');
-  editor.addEventListener('input',scheduleWorkspaceSave);
-  editor.addEventListener('change',scheduleWorkspaceSave);
-  restoreMainTab();
-});
-window.addEventListener('beforeunload',saveInvoiceWorkspace);
+window.addEventListener('DOMContentLoaded', restoreMainTab);
 </script>
 </body>
 </html>
