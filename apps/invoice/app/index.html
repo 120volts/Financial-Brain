@@ -405,6 +405,7 @@ textarea{min-height:76px;resize:vertical}
     <button class="secondary big full" onclick="openPrintableInvoice()">Open full invoice</button>
     <button class="primary big full" id="recordPaymentButton" onclick="togglePaymentEditor()">Record payment</button>
   </div>
+  <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend PDF invoice</button>
   <div id="paymentEditor" class="card hidden" style="margin:10px 0;box-shadow:none">
     <div class="section-title" style="margin-top:0">Record payment</div>
     <div class="row">
@@ -983,6 +984,7 @@ function brainEventLabel(type){
     invoice_created:'Invoice created',
     invoice_updated:'Invoice updated',
     invoice_sent:'Invoice sent',
+    invoice_resent:'Invoice resent',
     invoice_viewed:'Invoice viewed',
     payment_received:'Payment received'
   })[type]||type;
@@ -1029,6 +1031,7 @@ function exportBrainEvents(){
 
 function saveInvoice(status){
   const inv=makeInvoiceData(status); if(!inv)return null;
+  let wasPreviouslySent=false;
   if(editingInvoiceId){
     const existing=invoices.find(i=>i.id===editingInvoiceId);
     if(existing){
@@ -1036,8 +1039,11 @@ function saveInvoice(status){
         alert(`Invoice total cannot be less than the ${money(paymentTotal(existing))} already received.`);
         return null;
       }
+      wasPreviouslySent=!!existing.sentAt;
       inv.id=existing.id; inv.number=existing.number; inv.createdAt=existing.createdAt;
       inv.sentAt=existing.sentAt || (status==='sent'?new Date().toISOString():null);
+      inv.lastSentAt=existing.lastSentAt||null;inv.resendCount=Number(existing.resendCount||0);
+      if(status==='sent'&&wasPreviouslySent){inv.lastSentAt=new Date().toISOString();inv.resendCount+=1}
       inv.viewedAt=existing.viewedAt; inv.paidAt=existing.paidAt;
       inv.payments=existing.payments||[];inv.paidAmount=paymentTotal(existing);
       normalizeInvoicePayments(inv);
@@ -1055,7 +1061,7 @@ function saveInvoice(status){
   }else{
     emitBrainEvent('invoice_created',inv,{unique:'created'});
   }
-  if(status==='sent')emitBrainEvent('invoice_sent',inv,{unique:'sent'});
+  if(status==='sent')emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
   clearInvoiceWorkspace();workspaceReady=false;
   return inv;
 }
@@ -1065,7 +1071,7 @@ function workspacePreviewData(){
   const work=workScheduleFromForm(),lines=readInvoiceItems();
   const existing=editingInvoiceId?invoices.find(inv=>inv.id===editingInvoiceId):null;
   return {
-    number:existing?.number||'PREVIEW',clientName:$('clientName').value.trim()||'Client',clientEmail:parseEmailList($('clientEmail').value)[0]||'',recipientEmails:parseEmailList($('clientEmail').value),ccEmails:parseEmailList($('clientCc').value),bccEmails:parseEmailList($('clientBcc').value),
+    id:existing?.id||'workspace-preview',number:existing?.number||'PREVIEW',clientName:$('clientName').value.trim()||'Client',clientEmail:parseEmailList($('clientEmail').value)[0]||'',recipientEmails:parseEmailList($('clientEmail').value),ccEmails:parseEmailList($('clientCc').value),bccEmails:parseEmailList($('clientBcc').value),
     projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:$('serviceStartDate').value,serviceEndDate:$('serviceEndDate').value,workDates:work.workDates,offDates:work.offDates,
     lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',mileage:readMileageRecord(),jobCosts:readJobCosts()
   };
@@ -1285,11 +1291,16 @@ function invoiceHTML(inv){
     <div class="invoice-footer">Thank you for your business.</div>
   </div>`;
 }
-function sendCurrentInvoice(){
+async function sendCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  if(!inv.sentAt)inv.sentAt=new Date().toISOString();
+  const includeW9=$('includeW9')?.checked&&preparedW9File,attachments=includeW9?[preparedW9File]:[];
+  const result=await shareInvoicePDF(inv,attachments);if(!result||result==='cancelled')return;
+  const wasPreviouslySent=!!inv.sentAt,now=new Date().toISOString();
+  if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
   if(inv.status==='draft')inv.status='sent';
-  persist();emitBrainEvent('invoice_sent',inv,{unique:'sent'});openMail(inv);openInvoiceDetail(inv.id);
+  persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
+  if(result==='downloaded')openMail(inv);
+  openInvoiceDetail(inv.id);showToast(wasPreviouslySent?'Invoice prepared to resend.':'Invoice prepared to send.');
 }
 function markViewed(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
@@ -1469,6 +1480,7 @@ function openInvoiceDetail(id){
   $('paymentEditor').classList.add('hidden');
   $('recordPaymentButton').textContent=invoiceBalance(inv)>0?'Record payment':'Paid in full';
   $('recordPaymentButton').disabled=invoiceBalance(inv)<=0;
+  $('resendInvoiceButton').textContent=inv.sentAt?'Resend PDF invoice':'Send PDF invoice';
   $('pageTitle').textContent=inv.projectName||'Untitled project';
   $('pageSub').textContent=`${inv.clientName} · Invoice #${inv.number}`;
 }
@@ -1477,6 +1489,7 @@ function timelineHTML(inv){
   const rows=[
     ['Created',inv.createdAt],
     ['Sent',inv.sentAt],
+    ['Last resent',inv.lastSentAt],
     ['Viewed',inv.viewedAt],
     ['Paid in full',inv.paidAt]
   ];

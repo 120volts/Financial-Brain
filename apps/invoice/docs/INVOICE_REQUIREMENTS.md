@@ -39,6 +39,8 @@ Recipient rules:
 - The app fills the current official IRS W-9 template and can share it beside the invoice PDF
 - The taxpayer identification number, signature, and generated signed W-9 are never stored after the current browser session
 - A prepared W-9 can be downloaded for inspection before it is included with an invoice
+- Edited sent invoices can be sent again from Preview without creating a second invoice
+- Existing invoice details provide a clear Resend PDF invoice action and record the latest resend time
 - Notes
 - Mileage record
 - Job costs
