@@ -11,6 +11,7 @@
 <meta name="theme-color" content="#f4f6f8">
 <title>Invoice v2.3.4</title>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
 :root{
   --bg:#f4f6f8; --card:#fff; --ink:#15171b; --muted:#69707c;
@@ -383,9 +384,10 @@ textarea{min-height:76px;resize:vertical}
 <section id="previewPage" class="hidden">
   <div class="card invoice-preview" id="previewCard"></div>
   <div class="card" style="margin-top:10px">
-    <label>W-9 attachment (optional)</label>
-    <input id="w9File" type="file" accept="application/pdf,.pdf">
-    <div class="notice" style="margin-top:8px">Choose your completed W-9 PDF only when a client needs it. It will be shared with the visual invoice and is not stored by this prototype.</div>
+    <label><input id="includeW9" type="checkbox"> Include my W-9 (optional)</label>
+    <div id="w9Status" class="notice" style="margin-top:8px">W-9 not prepared.</div>
+    <div class="row" style="margin-top:10px"><button class="secondary full" onclick="openW9Editor()">Set up or update W-9</button><button class="secondary full" onclick="downloadPreparedW9()">Download prepared W-9</button></div>
+    <div class="notice" style="margin-top:8px">Your reusable details stay on this device. Your TIN and signature are used only to create the current W-9 PDF and are never saved.</div>
   </div>
   <div class="row">
     <button class="secondary big full" onclick="showPage('new')">Edit</button>
@@ -547,6 +549,8 @@ let offWorkDates = new Set();
 let workspaceReady = false;
 let workspaceTimer = null;
 const WORKSPACE_KEY='invoiceApp.invoiceWorkspace';
+const W9_PROFILE_KEY='invoiceApp.w9Profile';
+let preparedW9File=null;
 
 function dateRangeISO(start,end){
   if(!start||!end||end<start)return [];
@@ -739,6 +743,7 @@ function showPage(name){
     $('pageTitle').textContent='New invoice'; $('pageSub').textContent='Who, what, and how much.';
   } else if(name==='preview'){
     renderWorkspacePreview();
+    renderW9Status();
     $('previewPage').classList.remove('hidden'); $('navPreview').classList.add('active');
     $('pageTitle').textContent='Preview'; $('pageSub').textContent='Check it before sending.';
   } else if(name==='detail'){
@@ -1077,12 +1082,13 @@ function previewInvoice(){
   showPage('preview');
 }
 async function sendInvoice(){
-  const w9=$('w9File')?.files?.[0]||null;
+  const includeW9=$('includeW9')?.checked;
+  if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sending.');return}
   const inv=saveInvoice('sent');if(!inv)return;
-  const result=await shareInvoicePDF(inv,w9?[w9]:[]);
+  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
   if(result==='downloaded'){
     openMail(inv);
-    showToast(w9?'Invoice downloaded. Attach it and your selected W-9 to the email.':'Invoice downloaded. Attach it to the email.');
+    showToast(includeW9?'Invoice downloaded. Attach it and your W-9 to the email.':'Invoice downloaded. Attach it to the email.');
   }
   openInvoiceDetail(inv.id);
 }
@@ -1128,6 +1134,87 @@ function saveBusinessName(){
   if(!$('previewPage').classList.contains('hidden'))renderWorkspacePreview();
   if(!$('detailPage').classList.contains('hidden')&&currentInvoiceId)openInvoiceDetail(currentInvoiceId);
   showToast('Business name updated.');
+}
+function loadW9Profile(){
+  try{return JSON.parse(localStorage.getItem(W9_PROFILE_KEY)||'{}')||{}}catch(e){return {}}
+}
+function w9Option(value,label,current){return `<option value="${value}" ${current===value?'selected':''}>${label}</option>`}
+function openW9Editor(){
+  const p=loadW9Profile(),classification=p.classification||'individual';
+  openModal('Set up W-9',`
+    <div class="notice">Uses the official IRS Form W-9 (Rev. March 2024). <a href="https://www.irs.gov/pub/irs-pdf/fw9.pdf" target="_blank" rel="noopener">View the IRS form</a></div>
+    <label>Legal name (line 1)</label><input id="w9LegalName" value="${esc(p.legalName||'')}" placeholder="Name shown on your tax return">
+    <label>Business or disregarded-entity name (line 2)</label><input id="w9BusinessName" value="${esc(p.businessName||businessName())}">
+    <label>Federal tax classification (line 3a)</label><select id="w9Classification">
+      ${w9Option('individual','Individual / sole proprietor',classification)}
+      ${w9Option('c','C corporation',classification)}
+      ${w9Option('s','S corporation',classification)}
+      ${w9Option('partnership','Partnership',classification)}
+      ${w9Option('trust','Trust / estate',classification)}
+      ${w9Option('llc','Limited liability company',classification)}
+      ${w9Option('other','Other',classification)}
+    </select>
+    <div class="row"><div><label>LLC classification, if applicable</label><select id="w9LlcClass">
+      <option value="">Choose C, S, or P</option>${w9Option('C','C',p.llcClass||'')}${w9Option('S','S',p.llcClass||'')}${w9Option('P','P',p.llcClass||'')}
+    </select></div><div><label>Other classification</label><input id="w9Other" value="${esc(p.other||'')}"></div></div>
+    <label><input id="w9ForeignOwnership" type="checkbox" ${p.foreignOwnership?'checked':''}> Check line 3b (foreign partners, owners, or beneficiaries)</label>
+    <div class="row"><div><label>Exempt payee code, if any</label><input id="w9ExemptPayee" value="${esc(p.exemptPayee||'')}"></div><div><label>FATCA exemption code, if any</label><input id="w9Fatca" value="${esc(p.fatca||'')}"></div></div>
+    <label>Address (line 5)</label><input id="w9Address" value="${esc(p.address||'')}" placeholder="Number, street, and apartment or suite">
+    <label>City, state, and ZIP code (line 6)</label><input id="w9CityStateZip" value="${esc(p.cityStateZip||'')}">
+    <label>Account number(s), optional</label><input id="w9Accounts" value="${esc(p.accounts||'')}">
+    <div class="row"><div><label>TIN type</label><select id="w9TinType"><option value="ssn">Social Security number</option><option value="ein">Employer identification number</option></select></div><div><label>TIN (not saved)</label><input id="w9Tin" inputmode="numeric" autocomplete="off" placeholder="9 digits"></div></div>
+    <label>Signature name (not saved)</label><input id="w9Signature" autocomplete="off" value="${esc(p.legalName||'')}">
+    <label><input id="w9Certify" type="checkbox"> I certify that the information and TIN are correct and authorize this electronic signature.</label>
+    <div class="row" style="margin-top:14px"><button class="secondary full" onclick="saveW9Details()">Save reusable details</button><button class="primary full" onclick="prepareW9()">Prepare official W-9</button></div>
+    <div class="notice" style="margin-top:10px">The app saves the reusable fields above only on this device. It does not save the TIN, signature, or generated signed W-9 after the page is closed.</div>`);
+}
+function collectW9Profile(){
+  return {legalName:$('w9LegalName').value.trim(),businessName:$('w9BusinessName').value.trim(),classification:$('w9Classification').value,llcClass:$('w9LlcClass').value,other:$('w9Other').value.trim(),foreignOwnership:$('w9ForeignOwnership').checked,exemptPayee:$('w9ExemptPayee').value.trim(),fatca:$('w9Fatca').value.trim(),address:$('w9Address').value.trim(),cityStateZip:$('w9CityStateZip').value.trim(),accounts:$('w9Accounts').value.trim()};
+}
+function storeW9Profile(profile){localStorage.setItem(W9_PROFILE_KEY,JSON.stringify(profile))}
+function saveW9Details(){
+  const profile=collectW9Profile();
+  if(!profile.legalName){alert('Add the legal name shown on your tax return.');return}
+  storeW9Profile(profile);preparedW9File=null;closeModal();renderW9Status();showToast('Reusable W-9 details saved on this device.');
+}
+function renderW9Status(){
+  const status=$('w9Status');if(!status)return;
+  const p=loadW9Profile();
+  status.textContent=preparedW9File?`W-9 ready: ${preparedW9File.name}`:(p.legalName?`Saved details for ${p.legalName}. Prepare the W-9 before sending.`:'W-9 not set up yet.');
+}
+function downloadPreparedW9(){
+  if(!preparedW9File){openW9Editor();showToast('Prepare your W-9 first.');return}
+  const url=URL.createObjectURL(preparedW9File),link=document.createElement('a');link.href=url;link.download=preparedW9File.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function prepareW9(){
+  const profile=collectW9Profile(),tin=$('w9Tin').value.replace(/\D/g,''),signature=$('w9Signature').value.trim(),tinType=$('w9TinType').value;
+  if(!profile.legalName||!profile.address||!profile.cityStateZip){alert('Add your legal name and complete mailing address.');return}
+  if(profile.classification==='llc'&&!profile.llcClass){alert('Choose C, S, or P for the LLC classification.');return}
+  if(profile.classification==='other'&&!profile.other){alert('Describe the other tax classification.');return}
+  if(tin.length!==9){alert('Enter the 9-digit TIN. It will not be saved.');return}
+  if(!signature||!$('w9Certify').checked){alert('Enter your signature name and check the certification box.');return}
+  if(!window.PDFLib){alert('The W-9 PDF library did not load. Check your internet connection and try again.');return}
+  try{
+    storeW9Profile(profile);
+    const template=await fetch('fw9.pdf').then(response=>{if(!response.ok)throw new Error('Official W-9 template unavailable.');return response.arrayBuffer()});
+    const pdf=await PDFLib.PDFDocument.load(template),form=pdf.getForm(),fields=form.getFields();
+    const find=suffix=>fields.find(field=>field.getName().endsWith(suffix));
+    const setText=(suffix,value)=>{const field=find(suffix);if(field&&value!=null)field.setText(String(value))};
+    setText('f1_01[0]',profile.legalName);setText('f1_02[0]',profile.businessName);setText('f1_03[0]',profile.llcClass);setText('f1_04[0]',profile.other);
+    setText('f1_05[0]',profile.exemptPayee);setText('f1_06[0]',profile.fatca);setText('f1_07[0]',profile.address);setText('f1_08[0]',profile.cityStateZip);setText('f1_10[0]',profile.accounts);
+    const classIndex={individual:0,c:1,s:2,partnership:3,trust:4,llc:5,other:6}[profile.classification];
+    const classBox=fields.find(field=>field.getName().endsWith(`c1_1[${classIndex}]`));if(classBox)classBox.check();
+    if(profile.foreignOwnership){const box=find('c1_2[0]');if(box)box.check()}
+    if(tinType==='ssn'){setText('f1_11[0]',tin.slice(0,3));setText('f1_12[0]',tin.slice(3,5));setText('f1_13[0]',tin.slice(5))}
+    else {setText('f1_14[0]',tin.slice(0,2));setText('f1_15[0]',tin.slice(2))}
+    form.flatten();
+    const font=await pdf.embedFont(PDFLib.StandardFonts.HelveticaOblique),page=pdf.getPages()[0];
+    page.drawText(signature,{x:128,y:188,size:10,font,color:PDFLib.rgb(0,0,0)});
+    page.drawText(new Date().toLocaleDateString(),{x:405,y:188,size:9,color:PDFLib.rgb(0,0,0)});
+    const bytes=await pdf.save(),safeName=profile.legalName.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'')||'Taxpayer';
+    preparedW9File=new File([bytes],`W-9-${safeName}.pdf`,{type:'application/pdf'});
+    closeModal();renderW9Status();if($('includeW9'))$('includeW9').checked=true;showToast('Official W-9 prepared for this send.');
+  }catch(error){alert(`Could not prepare the W-9: ${error.message}`)}
 }
 function serviceDateLabel(inv){
   const count=Array.isArray(inv.workDates)?inv.workDates.length:dateRangeISO(inv.serviceStartDate,inv.serviceEndDate).length;

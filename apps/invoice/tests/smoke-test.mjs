@@ -2,7 +2,7 @@ import { readFile, access } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const html = await readFile(new URL('../app/index.html', import.meta.url), 'utf8');
-const requiredFiles = ['manifest.webmanifest','service-worker.js','icon-192.png','icon-512.png'];
+const requiredFiles = ['manifest.webmanifest','service-worker.js','icon-192.png','icon-512.png','fw9.pdf'];
 for (const file of requiredFiles) await access(new URL(`../app/${file}`, import.meta.url));
 
 for (const feature of [
@@ -90,7 +90,12 @@ for (const scheduleFeature of [
   'function businessInitials()',
   'function learnInvoiceReferences(',
   'lines.filter(line=>!line.mileage)',
-  'W-9 attachment (optional)',
+  'Include my W-9 (optional)',
+  'function openW9Editor()',
+  'async function prepareW9()',
+  'function downloadPreparedW9()',
+  "const W9_PROFILE_KEY='invoiceApp.w9Profile'",
+  'fw9.pdf',
   'Send PDF invoice',
   "const files=[file,...attachments]",
   "words[0][0]+words[words.length-1][0]",

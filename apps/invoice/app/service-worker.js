@@ -1,8 +1,9 @@
-const CACHE_NAME = 'financial-brain-invoice-v2.5.0';
+const CACHE_NAME = 'financial-brain-invoice-v2.5.1';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './fw9.pdf',
   './icon-192.png',
   './icon-512.png'
 ];

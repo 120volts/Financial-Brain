@@ -34,8 +34,10 @@ Recipient rules:
 - Valid clients and manually entered line items are saved to Clients and Services & Products when the invoice is previewed, saved, or sent
 - Automatically generated mileage lines do not become reusable services or products
 - Sending prepares the same styled invoice shown in Preview as a PDF for the device Share Sheet
-- A completed W-9 PDF can optionally be selected for the current send and shared beside the invoice PDF
-- W-9 files are not stored in browser persistence
+- The app stores reusable W-9 identity, classification, and address details locally and can update them at any time
+- The app fills the current official IRS W-9 template and can share it beside the invoice PDF
+- The taxpayer identification number, signature, and generated signed W-9 are never stored after the current browser session
+- A prepared W-9 can be downloaded for inspection before it is included with an invoice
 - Notes
 - Mileage record
 - Job costs
