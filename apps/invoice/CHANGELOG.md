@@ -5,6 +5,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 ## [Unreleased]
 
 ### Added
+- Per-payment “Don't add this payment to Financial Brain” control that preserves Paid status while omitting Financial Brain income and tax records.
 - Partial-payment recording with received date, method, reference and notes.
 - Payment history, paid total and remaining balance on invoice details.
 - Per-payment cash-basis income events and tax records.

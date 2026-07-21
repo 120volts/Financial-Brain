@@ -132,7 +132,9 @@ for (const paymentFeature of [
   'Invoice payment recorded',
   'Payment cannot exceed the remaining balance',
   'Invoice total cannot be less than the',
-  'Paid in full'
+  'Paid in full',
+  'id="excludePaymentFromBrain"',
+  'excludeFromBrain:!!payment.excludeFromBrain'
 ]) assert.ok(html.includes(paymentFeature), `Missing partial-payment behavior: ${paymentFeature}`);
 
 for (const key of [

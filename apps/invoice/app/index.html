@@ -420,6 +420,8 @@ textarea{min-height:76px;resize:vertical}
       <div><label>Reference (optional)</label><input id="paymentReference" placeholder="Check or transaction number"></div>
     </div>
     <label>Notes (optional)</label><input id="paymentNotes" placeholder="Anything useful about this payment">
+    <label class="toggle-label"><input id="excludePaymentFromBrain" type="checkbox"> Don't add this payment to Financial Brain</label>
+    <div class="notice">The invoice will still be marked paid. This payment will be excluded from Financial Brain income and tax records.</div>
     <button class="primary full" style="margin-top:14px" onclick="recordPayment()">Save payment</button>
   </div>
   <div class="row">
@@ -468,7 +470,7 @@ textarea{min-height:76px;resize:vertical}
     <div class="title">Financial Brain connection</div>
     <div class="meta" style="margin-top:6px">
       This is the abbreviated background view. Invoice actions create events automatically.
-      In this prototype, tax income is recorded only when an invoice payment is recorded.
+      In this prototype, tax income is recorded only when an invoice payment is recorded and not explicitly excluded from Financial Brain.
     </div>
   </div>
 
@@ -1068,6 +1070,7 @@ function rebuildBrainFromInvoices(){
     if(inv.viewedAt)emitBrainEvent('invoice_viewed',inv,{unique:'viewed'});
     normalizeInvoicePayments(inv);
     inv.payments.forEach(payment=>{
+      if(payment.excludeFromBrain)return;
       emitBrainEvent('payment_received',inv,{unique:payment.id,amount:payment.amount,paymentId:payment.id});
       createPaymentTaxRecord(inv,payment);
     });
@@ -1437,26 +1440,29 @@ function togglePaymentEditor(){
   $('paymentAmount').value=invoiceBalance(inv).toFixed(2);
   $('paymentDate').value=today();
   $('paymentMethod').value='';$('paymentReference').value='';$('paymentNotes').value='';
+  $('excludePaymentFromBrain').checked=false;
 }
 function addPayment(inv,payment){
   normalizeInvoicePayments(inv);
   const amount=Number(payment.amount||0),balance=invoiceBalance(inv);
   if(!Number.isFinite(amount)||amount<=0)throw new Error('Payment amount must be greater than zero.');
   if(amount>balance+0.001)throw new Error(`Payment cannot exceed the remaining balance of ${money(balance)}.`);
-  const saved={id:uid(),amount,paidAt:payment.paidAt||new Date().toISOString(),method:payment.method||'',reference:payment.reference||'',notes:payment.notes||''};
+  const saved={id:uid(),amount,paidAt:payment.paidAt||new Date().toISOString(),method:payment.method||'',reference:payment.reference||'',notes:payment.notes||'',excludeFromBrain:!!payment.excludeFromBrain};
   inv.payments.push(saved);inv.paidAmount=paymentTotal(inv);
   if(invoiceBalance(inv)<=0.001){inv.status='paid';inv.paidAt=saved.paidAt}
   else {inv.status='partial';inv.paidAt=null}
   persist();
-  emitBrainEvent('payment_received',inv,{unique:saved.id,amount:saved.amount,paymentId:saved.id});
-  createPaymentTaxRecord(inv,saved);
+  if(!saved.excludeFromBrain){
+    emitBrainEvent('payment_received',inv,{unique:saved.id,amount:saved.amount,paymentId:saved.id});
+    createPaymentTaxRecord(inv,saved);
+  }
   openInvoiceDetail(inv.id);showToast(`Payment of ${money(saved.amount)} recorded.`);
 }
 function recordPayment(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
   try{
     const date=$('paymentDate').value||today();
-    addPayment(inv,{amount:$('paymentAmount').value,paidAt:new Date(date+'T12:00:00').toISOString(),method:$('paymentMethod').value.trim(),reference:$('paymentReference').value.trim(),notes:$('paymentNotes').value.trim()});
+    addPayment(inv,{amount:$('paymentAmount').value,paidAt:new Date(date+'T12:00:00').toISOString(),method:$('paymentMethod').value.trim(),reference:$('paymentReference').value.trim(),notes:$('paymentNotes').value.trim(),excludeFromBrain:$('excludePaymentFromBrain').checked});
   }catch(error){alert(error.message)}
 }
 
@@ -1610,7 +1616,7 @@ function timelineHTML(inv){
     ['Viewed',inv.viewedAt],
     ['Paid in full',inv.paidAt]
   ];
-  const payments=inv.payments.map(payment=>`<div class="timeline-row"><div class="dot on"></div><div><div class="event">Payment · ${money(payment.amount)}</div><div class="when">${new Date(payment.paidAt).toLocaleString()}${payment.method?' · '+esc(payment.method):''}${payment.reference?' · '+esc(payment.reference):''}</div>${payment.notes?`<div class="meta">${esc(payment.notes)}</div>`:''}</div></div>`).join('');
+  const payments=inv.payments.map(payment=>`<div class="timeline-row"><div class="dot on"></div><div><div class="event">Payment · ${money(payment.amount)}</div><div class="when">${new Date(payment.paidAt).toLocaleString()}${payment.method?' · '+esc(payment.method):''}${payment.reference?' · '+esc(payment.reference):''}</div>${payment.excludeFromBrain?'<div class="no-tax-pill" style="margin-top:6px">Not added to Financial Brain</div>':''}${payment.notes?`<div class="meta">${esc(payment.notes)}</div>`:''}</div></div>`).join('');
   return `<div class="card flatcard" style="margin-top:12px"><div class="row"><div><div class="label">Paid</div><div class="value">${money(paymentTotal(inv))}</div></div><div><div class="label">Balance</div><div class="value">${money(invoiceBalance(inv))}</div></div></div></div>
   <div class="section-title">Timeline</div><div class="timeline">
     ${rows.map(([name,time])=>`<div class="timeline-row"><div class="dot ${time?'on':''}"></div><div><div class="event">${name}</div><div class="when">${time?new Date(time).toLocaleString():'Not yet'}</div></div></div>`).join('')}

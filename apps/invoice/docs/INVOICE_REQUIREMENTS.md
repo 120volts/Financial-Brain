@@ -76,6 +76,7 @@ Recipient rules:
 - Mark sent
 - Mark viewed
 - Record payment and mark paid
+- Optionally exclude an individual payment from Financial Brain income and tax records while still marking the invoice paid
 - Duplicate
 - Edit
 - Archive
