@@ -85,6 +85,9 @@ for (const scheduleFeature of [
   'Resume automatic work-day quantity',
   'class="item-qty" type="number" min="0" step="1"',
   'id="modalLineQty" type="number" min="0" step="1"',
+  'function editBusinessName()',
+  'function saveBusinessName()',
+  'Business name updated.',
   'Trips per workday',
   "row.dataset.qtyMode==='manual'",
   'oneWay*trips*workDays'

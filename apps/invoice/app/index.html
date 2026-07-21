@@ -1082,6 +1082,23 @@ ${businessName()}`);
 }
 function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
+function editBusinessName(){
+  openModal('Edit business name',`
+    <label>Business name</label>
+    <input id="modalBusinessName" value="${esc(businessName())}" placeholder="Your business name">
+    <div class="notice" style="margin-top:10px">This updates the FROM name and the initials shown on every invoice preview and PDF.</div>
+    <button class="primary full" style="margin-top:14px" onclick="saveBusinessName()">Save business name</button>`);
+  setTimeout(()=>$('modalBusinessName')?.focus(),0);
+}
+function saveBusinessName(){
+  const name=$('modalBusinessName').value.trim();
+  if(!name){alert('Enter your business name.');return}
+  localStorage.setItem('invoiceApp.businessName',name);
+  closeModal();
+  if(!$('previewPage').classList.contains('hidden'))renderWorkspacePreview();
+  if(!$('detailPage').classList.contains('hidden')&&currentInvoiceId)openInvoiceDetail(currentInvoiceId);
+  showToast('Business name updated.');
+}
 function serviceDateLabel(inv){
   const count=Array.isArray(inv.workDates)?inv.workDates.length:dateRangeISO(inv.serviceStartDate,inv.serviceEndDate).length;
   const suffix=count?` · ${count} work day${count===1?'':'s'}`:'';
@@ -1120,7 +1137,7 @@ function invoiceHTML(inv){
         <h2 class="invoice-project clickable" onclick="editProjectName('${inv.id}')">${esc(inv.projectName||'Untitled project')} ✎</h2>
         <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div>
       </div>
-      <div class="invoice-mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div>
+      <div class="invoice-mark clickable" onclick="editBusinessName()" title="Edit business name">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div>
     </div>
 
     <div class="invoice-parties">
@@ -1129,9 +1146,9 @@ function invoiceHTML(inv){
         <div class="invoice-party-name">${esc(inv.clientName)}</div>
         <div class="invoice-party-meta">${invoiceEmailHTML(inv)}</div>
       </div>
-      <div class="invoice-from">
+      <div class="invoice-from clickable" onclick="editBusinessName()">
         <div class="invoice-small-label">FROM</div>
-        <div class="invoice-party-name">${esc(businessName())}</div>
+        <div class="invoice-party-name">${esc(businessName())} ✎</div>
       </div>
     </div>
 
