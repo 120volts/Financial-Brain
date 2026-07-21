@@ -1082,6 +1082,11 @@ ${businessName()}`);
 }
 function openMail(inv){location.href=buildMailtoURL(inv)}
 function businessName(){return localStorage.getItem('invoiceApp.businessName')||'My Business'}
+function businessInitials(){
+  const words=businessName().trim().split(/\s+/).filter(Boolean);
+  if(words.length>1)return (words[0][0]+words[words.length-1][0]).toUpperCase();
+  return (words[0]||'MB').slice(0,2).toUpperCase();
+}
 function editBusinessName(){
   openModal('Edit business name',`
     <label>Business name</label>
@@ -1137,7 +1142,7 @@ function invoiceHTML(inv){
         <h2 class="invoice-project clickable" onclick="editProjectName('${inv.id}')">${esc(inv.projectName||'Untitled project')} ✎</h2>
         <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div>
       </div>
-      <div class="invoice-mark clickable" onclick="editBusinessName()" title="Edit business name">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div>
+      <div class="invoice-mark clickable" onclick="editBusinessName()" title="Edit business name">${esc(businessInitials())}</div>
     </div>
 
     <div class="invoice-parties">
@@ -1743,7 +1748,7 @@ function buildInvoicePDF(inv){
   doc.setFillColor(17,24,39);doc.rect(0,0,W,126,'F');
   doc.setFillColor(61,91,190);doc.circle(W-64,58,30,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
-  doc.text(pdfSafe(businessName()).slice(0,2).toUpperCase(),W-68,59);
+  doc.text(pdfSafe(businessInitials()),W-68,59);
   doc.setFontSize(9);doc.text(`INVOICE #${pdfSafe(inv.number)}`,margin,36);
   doc.setFontSize(24);doc.setFont('helvetica','bold');
   doc.text(pdfSafe(inv.projectName||'Untitled project').slice(0,36),margin,70);
@@ -1856,7 +1861,7 @@ function invoiceDocumentHTML(inv){
   @media(max-width:600px){.page{width:100%;margin:0;border-radius:0}.hero,.body{padding:22px}.head,.row{grid-template-columns:minmax(0,1fr) 42px 80px 92px;font-size:12px}h1{font-size:31px}}
   </style></head><body>
   <div class="page">
-    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div></div><div class="mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div></div>
+    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div></div><div class="mark">${esc(businessInitials())}</div></div>
     <div class="body">
       <div class="parties"><div><div class="small">BILL TO</div><div class="name">${esc(inv.clientName)}</div><div class="muted">${invoiceEmailHTML(inv)}</div></div><div class="right"><div class="small">FROM</div><div class="name">${esc(businessName())}</div></div></div>
       <div class="head"><div>Description</div><div>Qty</div><div>Rate</div><div>Amount</div></div>

@@ -30,6 +30,7 @@ Recipient rules:
 - Line items with description, quantity and rate
 - Quantity arrow controls move in whole numbers, while manually entered decimal quantities remain supported in invoice calculations
 - The business name can be edited directly from Preview and updates both the FROM name and business-initial mark
+- Multi-word business names use the first letter of the first and last words for the invoice mark
 - Notes
 - Mileage record
 - Job costs

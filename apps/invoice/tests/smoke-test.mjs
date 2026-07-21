@@ -87,6 +87,8 @@ for (const scheduleFeature of [
   'id="modalLineQty" type="number" min="0" step="1"',
   'function editBusinessName()',
   'function saveBusinessName()',
+  'function businessInitials()',
+  "words[0][0]+words[words.length-1][0]",
   'Business name updated.',
   'Trips per workday',
   "row.dataset.qtyMode==='manual'",

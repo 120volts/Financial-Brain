@@ -24,6 +24,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 - Automatic workday and mileage quantities stop changing after the user manually edits them.
 - Quantity arrow controls now move by whole numbers while typed decimal quantities remain supported.
 - Business name and invoice initials can now be changed directly from the Preview page.
+- Business initials now use the first letter of each end word instead of the first two letters of the name.
 - Private mileage previews show distance and purpose without obsolete address placeholders.
 
 ### Compatibility
