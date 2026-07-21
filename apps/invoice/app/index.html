@@ -387,6 +387,12 @@ textarea{min-height:76px;resize:vertical}
 <section id="previewPage" class="hidden">
   <div class="card invoice-preview" id="previewCard"></div>
   <div class="card" style="margin-top:10px">
+    <label class="toggle-label"><input id="paymentReminderEnabled" type="checkbox"> Remind me until this invoice is paid</label>
+    <label>Reminder frequency</label>
+    <select id="paymentReminderDays">
+      <option value="3">Every 3 days</option><option value="7" selected>Every week</option><option value="10">Every 10 days</option><option value="14">Every 2 weeks</option><option value="30">Every month</option>
+    </select>
+    <div class="notice" style="margin-top:8px">Optional. One week is the default. The reminder stops when the balance reaches zero.</div>
     <label><input id="includeW9" type="checkbox"> Include my W-9 (optional)</label>
     <div id="w9Status" class="notice" style="margin-top:8px">W-9 not prepared.</div>
     <div class="row" style="margin-top:10px"><button class="secondary full" onclick="openW9Editor()">Set up or update W-9</button><button class="secondary full" onclick="downloadPreparedW9()">Download prepared W-9</button></div>
@@ -410,6 +416,15 @@ textarea{min-height:76px;resize:vertical}
     <button class="primary big full" id="recordPaymentButton" onclick="togglePaymentEditor()">Record payment</button>
   </div>
   <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend by email</button>
+  <button class="secondary big full" id="paymentReminderEmailButton" style="margin-top:10px" onclick="sendPaymentReminderEmail()">Send payment reminder email</button>
+  <div class="card" style="margin:10px 0;box-shadow:none">
+    <label class="toggle-label"><input id="detailPaymentReminder" type="checkbox" onchange="toggleCurrentPaymentReminder(this.checked)"> Remind me until paid</label>
+    <label>Reminder frequency</label>
+    <select id="detailPaymentReminderDays" onchange="changeCurrentPaymentReminderDays(this.value)">
+      <option value="3">Every 3 days</option><option value="7">Every week</option><option value="10">Every 10 days</option><option value="14">Every 2 weeks</option><option value="30">Every month</option>
+    </select>
+    <div class="notice" style="margin-top:8px">Optional. You can change this at any time.</div>
+  </div>
   <div id="paymentEditor" class="card hidden" style="margin:10px 0;box-shadow:none">
     <div class="section-title" style="margin-top:0">Record payment</div>
     <div class="row">
@@ -503,6 +518,20 @@ textarea{min-height:76px;resize:vertical}
     <button class="secondary full" onclick="exportBrainEvents()">Export event log</button>
   </div>
 
+  <div class="section-title">Backup &amp; iCloud Drive</div>
+  <div class="card">
+    <div class="title">Move Financial Brain data between devices</div>
+    <div class="meta" style="margin-top:6px">
+      Export one backup containing invoices, clients, projects, services, settings, payment history, and saved W-9 profile details. On iPhone, choose Save to Files and select iCloud Drive. Importing merges saved records with this device instead of deleting unique records.
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary full" onclick="exportFinancialBrainBackup()">Export backup</button>
+      <button class="secondary full" onclick="$('financialBrainBackupInput').click()">Import backup</button>
+    </div>
+    <input id="financialBrainBackupInput" type="file" accept=".json,application/json" class="hidden" onchange="importFinancialBrainBackup(event)">
+    <div id="backupStatus" class="meta" style="margin-top:10px">No backup transferred during this session.</div>
+  </div>
+
   <div class="section-title">Recent events</div>
   <div id="brainEventList"></div>
 </section>
@@ -572,7 +601,80 @@ let workspaceReady = false;
 let workspaceTimer = null;
 const WORKSPACE_KEY='invoiceApp.invoiceWorkspace';
 const W9_PROFILE_KEY='invoiceApp.w9Profile';
+const BACKUP_FORMAT='financial-brain-backup';
+const BACKUP_VERSION=1;
+const BACKUP_ARRAY_KEYS=new Set([
+  'invoiceApp.invoices','invoiceApp.clients','invoiceApp.items','invoiceApp.projects',
+  'invoiceApp.brainEvents','invoiceApp.taxRecords'
+]);
 let preparedW9File=null;
+
+function financialBrainStorageEntries(){
+  const entries={};
+  for(let index=0;index<localStorage.length;index++){
+    const key=localStorage.key(index);
+    if(key?.startsWith('invoiceApp.')&&key!=='invoiceApp.preImportBackup')entries[key]=localStorage.getItem(key);
+  }
+  return entries;
+}
+function backupFileName(){return `Financial-Brain-Backup-${today()}.json`}
+async function exportFinancialBrainBackup(){
+  saveInvoiceWorkspace();persist();
+  const payload={format:BACKUP_FORMAT,version:BACKUP_VERSION,exportedAt:new Date().toISOString(),data:financialBrainStorageEntries()};
+  const file=new File([JSON.stringify(payload,null,2)],backupFileName(),{type:'application/json'});
+  let shared=false;
+  if(navigator.share&&navigator.canShare?.({files:[file]})){
+    try{await navigator.share({files:[file],title:'Financial Brain backup',text:'Save this backup in iCloud Drive or transfer it to another device.'});shared=true}catch(error){if(error?.name==='AbortError')return}
+  }
+  if(!shared){
+    const url=URL.createObjectURL(file),link=document.createElement('a');link.href=url;link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  const status=$('backupStatus');if(status)status.textContent=`Backup exported ${new Date().toLocaleString()}.`;
+  showToast(shared?'Choose Save to Files to place the backup in iCloud Drive.':'Financial Brain backup downloaded.');
+}
+function recordTimestamp(record){
+  const value=record?.updatedAt||record?.savedAt||record?.createdAt||record?.paidAt||'';
+  const timestamp=Date.parse(value);return Number.isFinite(timestamp)?timestamp:0;
+}
+function mergeBackupRecords(current,incoming){
+  const merged=new Map();
+  [...current,...incoming].forEach((record,index)=>{
+    if(!record||typeof record!=='object')return;
+    const identity=String(record.id||record.number||record.name||`record-${index}`);
+    const existing=merged.get(identity);
+    if(!existing||recordTimestamp(record)>=recordTimestamp(existing))merged.set(identity,record);
+  });
+  return [...merged.values()];
+}
+async function importFinancialBrainBackup(event){
+  const input=event.target,file=input.files?.[0];input.value='';if(!file)return;
+  try{
+    const payload=JSON.parse(await file.text());
+    if(payload?.format!==BACKUP_FORMAT||!payload.data||typeof payload.data!=='object')throw new Error('This is not a Financial Brain backup file.');
+    const entries=Object.entries(payload.data).filter(([key,value])=>key.startsWith('invoiceApp.')&&typeof value==='string');
+    if(!entries.length)throw new Error('The backup contains no Financial Brain records.');
+    const prepared=entries.map(([key,value])=>{
+      if(!BACKUP_ARRAY_KEYS.has(key))return [key,value,null];
+      const incoming=JSON.parse(value||'[]');
+      if(!Array.isArray(incoming))throw new Error(`Invalid records for ${key}.`);
+      return [key,value,incoming];
+    });
+    localStorage.setItem('invoiceApp.preImportBackup',JSON.stringify({createdAt:new Date().toISOString(),data:financialBrainStorageEntries()}));
+    for(const [key,value,incomingRecords] of prepared){
+      if(BACKUP_ARRAY_KEYS.has(key)){
+        const current=JSON.parse(localStorage.getItem(key)||'[]');
+        if(!Array.isArray(current))throw new Error(`Invalid existing records for ${key}.`);
+        localStorage.setItem(key,JSON.stringify(mergeBackupRecords(current,incomingRecords)));
+      }else if(key===WORKSPACE_KEY){
+        const current=JSON.parse(localStorage.getItem(key)||'null'),incoming=JSON.parse(value||'null');
+        if(!current||recordTimestamp(incoming)>=recordTimestamp(current))localStorage.setItem(key,value);
+      }else localStorage.setItem(key,value);
+    }
+    const status=$('backupStatus');if(status)status.textContent=`Imported and merged ${file.name}.`;
+    showToast('Backup imported. Reloading Financial Brain…');
+    setTimeout(()=>location.reload(),700);
+  }catch(error){alert(error?.message||'The backup could not be imported.');}
+}
 
 function dateRangeISO(start,end){
   if(!start||!end||end<start)return [];
@@ -623,6 +725,33 @@ function paymentTotal(inv){
   return Number(inv.paidAmount||0);
 }
 function invoiceBalance(inv){return Math.max(0,Number(inv.total||0)-paymentTotal(inv))}
+function paymentReminderPlugin(){return window.Capacitor?.Plugins?.PaymentReminder||null}
+function paymentReminderEligible(inv){
+  return !!inv?.paymentReminderEnabled&&!!inv?.sentAt&&invoiceBalance(inv)>0.001&&!['paid','cancelled'].includes(inv.status);
+}
+async function syncPaymentReminder(inv,{replace=false,announce=false}={}){
+  const plugin=paymentReminderPlugin();if(!plugin||!inv?.id)return;
+  try{
+    if(!paymentReminderEligible(inv)){
+      await plugin.cancel({id:String(inv.id)});return {cancelled:true};
+    }
+    const result=await plugin.schedule({
+      id:String(inv.id),invoiceId:String(inv.id),replace,
+      intervalDays:Math.min(365,Math.max(1,Number(inv.paymentReminderDays||7))),
+      title:`Invoice #${inv.number} is still unpaid`,
+      body:`${inv.clientName} · ${inv.projectName||'Untitled project'} · ${money(invoiceBalance(inv))} remaining`
+    });
+    if(announce){
+      if(result?.permission==='denied')showToast('Invoice saved. Enable notifications in iPhone Settings for payment reminders.');
+      else showToast('Payment reminder set for every 10 days until paid.');
+    }
+    return result;
+  }catch(error){
+    if(announce)showToast('Invoice saved, but the payment reminder could not be scheduled.');
+    return {error:true};
+  }
+}
+function syncAllPaymentReminders(){invoices.forEach(inv=>{void syncPaymentReminder(inv)})}
 function parseEmailList(value){
   return [...new Set(String(value||'').split(/[\n,;]+/).map(email=>email.trim()).filter(Boolean))];
 }
@@ -689,7 +818,7 @@ function persist(){
 function invoiceWorkspaceFromForm(){
   const value=id=>$(id)?.value||'';
   return {
-    version:1,savedAt:new Date().toISOString(),editingInvoiceId,
+    version:1,savedAt:new Date().toISOString(),editingInvoiceId,paymentReminderEnabled:!!$('paymentReminderEnabled')?.checked,paymentReminderDays:Number($('paymentReminderDays')?.value||7),
     projectName:value('projectName'),clientName:value('clientName'),clientEmail:value('clientEmail'),clientCc:value('clientCc'),clientBcc:value('clientBcc'),
     invoiceDate:value('invoiceDate'),paymentTerms:value('paymentTerms'),serviceStartDate:value('serviceStartDate'),serviceEndDate:value('serviceEndDate'),offDates:[...offWorkDates],
     lines:[...document.querySelectorAll('#invoiceItems .item-row')].map(row=>({name:row.querySelector('.item-name').value,qty:row.querySelector('.item-qty').value,rate:row.querySelector('.item-rate').value,quantityMode:row.dataset.qtyMode||'manual',mileage:row.dataset.mileage==='true'})),
@@ -721,6 +850,8 @@ function restoreInvoiceWorkspace(){
   editingInvoiceId=workspace.editingInvoiceId||null;currentInvoiceId=editingInvoiceId;
   const set=(id,value)=>{if($(id))$(id).value=value??''};
   ['projectName','clientName','clientEmail','clientCc','clientBcc','invoiceDate','paymentTerms','serviceStartDate','serviceEndDate'].forEach(id=>set(id,workspace[id]));
+  if($('paymentReminderEnabled'))$('paymentReminderEnabled').checked=!!workspace.paymentReminderEnabled;
+  if($('paymentReminderDays'))$('paymentReminderDays').value=String(workspace.paymentReminderDays||7);
   set('invoiceNotes',workspace.notes);offWorkDates=new Set(workspace.offDates||[]);
   $('invoiceItems').innerHTML='';(workspace.lines?.length?workspace.lines:[{}]).forEach(line=>{addItemRow(line);const row=document.querySelector('#invoiceItems .item-row:last-child');if(line.mileage&&row)row.dataset.mileage='true'});
   $('hasMileage').checked=!!workspace.hasMileage;$('mileageBox').classList.toggle('hidden',!workspace.hasMileage);
@@ -806,6 +937,8 @@ function openNewInvoice(forceNew=false){
   offWorkDates=new Set();renderWorkSchedule();
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
+  if($('paymentReminderEnabled'))$('paymentReminderEnabled').checked=false;
+  if($('paymentReminderDays'))$('paymentReminderDays').value='7';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
   $('mileageOneWay').value='';$('mileageTrips').value='2';
   $('billMileage').checked=false;$('mileageBillRate').value='0';$('mileagePurpose').value='Travel to client work';$('mileageTotal').textContent='0 mi';
@@ -1003,7 +1136,7 @@ function makeInvoiceData(status){
     recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
     projectName:$('projectName').value.trim()||'Untitled project',
     date,dueDate:schedule.dueDate,serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms:schedule.terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
-    total:v.total,status,createdAt:new Date().toISOString(),
+    total:v.total,status,createdAt:new Date().toISOString(),paymentReminderEnabled:!!$('paymentReminderEnabled')?.checked,paymentReminderDays:Number($('paymentReminderDays')?.value||7),
     mileage:readMileageRecord(),
     jobCosts:readJobCosts(),
     sentAt:status==='sent'?new Date().toISOString():null,viewedAt:null,paidAt:null,paidAmount:0,payments:[]
@@ -1173,7 +1306,7 @@ function workspacePreviewData(){
   return {
     id:existing?.id||'workspace-preview',number:existing?.number||'PREVIEW',clientName:$('clientName').value.trim()||'Client',clientEmail:parseEmailList($('clientEmail').value)[0]||'',recipientEmails:parseEmailList($('clientEmail').value),ccEmails:parseEmailList($('clientCc').value),bccEmails:parseEmailList($('clientBcc').value),
     projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:$('serviceStartDate').value,serviceEndDate:$('serviceEndDate').value,workDates:work.workDates,offDates:work.offDates,
-    lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',mileage:readMileageRecord(),jobCosts:readJobCosts()
+    lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',paymentReminderEnabled:!!$('paymentReminderEnabled')?.checked,paymentReminderDays:Number($('paymentReminderDays')?.value||7),mileage:readMileageRecord(),jobCosts:readJobCosts()
   };
 }
 function renderWorkspacePreview(){$('previewCard').innerHTML=invoiceHTML(workspacePreviewData())}
@@ -1191,10 +1324,12 @@ async function sendInvoice(){
   const includeW9=$('includeW9')?.checked;
   if(includeW9&&!preparedW9File){openW9Editor();showToast('Prepare your W-9 before sending.');return}
   const inv=saveInvoice('sent');if(!inv)return;
-  const result=await shareInvoicePDF(inv,includeW9?[preparedW9File]:[]);
-  if(result==='cancelled')return;
+  const result=await deliverInvoiceEmail(inv,includeW9?[preparedW9File]:[]);
+  if(['cancelled','native-cancelled'].includes(result))return;
+  const reminderResult=await syncPaymentReminder(inv,{announce:inv.paymentReminderEnabled});
+  if(reminderResult?.permission==='denied'){inv.paymentReminderEnabled=false;persist()}
   openInvoiceDetail(inv.id);
-  showToast(result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.');
+  showToast(invoiceDeliveryMessage(result));
 }
 async function shareInvoiceFromPreview(){
   const includeW9=$('includeW9')?.checked;
@@ -1222,6 +1357,98 @@ Please see the attached invoice PDF.
 
 Thank you,
 ${businessName()}`;
+}
+function invoiceEmailMessageHTML(inv){
+  normalizeInvoiceContacts(inv);
+  const workDates=serviceDateLabel(inv);
+  const rows=inv.lines.map(line=>`<tr>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb"><strong>${esc(line.name)}</strong></td>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:center">${esc(line.qty)}</td>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right">${money(line.rate)}</td>
+    <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>${money(line.qty*line.rate)}</strong></td>
+  </tr>`).join('');
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1f2937;max-width:680px;margin:0 auto">
+    <div style="border-top:6px solid #3d5bbe;padding:24px;border-radius:8px;background:#ffffff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#6b7280">INVOICE #${esc(inv.number)}</div>
+      <h1 style="font-size:26px;margin:7px 0 4px;color:#111827">${esc(inv.projectName||'Untitled project')}</h1>
+      <div style="color:#6b7280">${esc(inv.date)}${inv.dueDate?` &nbsp;·&nbsp; Due ${esc(inv.dueDate)}`:''}</div>
+      ${workDates?`<div style="color:#6b7280;margin-top:4px">${esc(workDates)}</div>`:''}
+      <table style="width:100%;border-collapse:collapse;margin-top:24px;font-size:14px">
+        <thead><tr style="background:#f3f4f6;color:#4b5563"><th style="padding:10px 8px;text-align:left">Description</th><th style="padding:10px 8px">Qty</th><th style="padding:10px 8px;text-align:right">Rate</th><th style="padding:10px 8px;text-align:right">Amount</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="text-align:right;font-size:22px;font-weight:800;margin-top:20px">Total&nbsp;&nbsp;${money(inv.total)}</div>
+      ${inv.notes?`<div style="background:#f7f8fa;border-radius:8px;padding:14px;margin-top:22px"><div style="font-size:11px;font-weight:700;color:#6b7280">NOTES</div><div style="margin-top:6px">${esc(inv.notes)}</div></div>`:''}
+      <p style="margin-top:24px">The complete invoice PDF is attached.</p>
+      <p style="margin-top:24px">Thank you,<br><strong>${esc(businessName())}</strong></p>
+    </div>
+  </div>`;
+}
+function paymentReminderEmailSubject(inv){return `Payment reminder — ${inv.projectName||'Project'} invoice #${inv.number}`}
+function paymentReminderEmailMessageHTML(inv){
+  normalizeInvoiceContacts(inv);
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1f2937;max-width:680px;margin:0 auto">
+    <div style="border-top:6px solid #3d5bbe;padding:24px;border-radius:8px;background:#ffffff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#6b7280">PAYMENT REMINDER · INVOICE #${esc(inv.number)}</div>
+      <h1 style="font-size:26px;margin:7px 0 4px;color:#111827">${esc(inv.projectName||'Untitled project')}</h1>
+      <p style="margin-top:24px">Hi ${esc(inv.clientName)},</p>
+      <p>This is a friendly reminder that invoice #${esc(inv.number)} has a remaining balance of <strong>${money(invoiceBalance(inv))}</strong>.</p>
+      ${inv.dueDate?`<p>Due date: <strong>${esc(inv.dueDate)}</strong></p>`:''}
+      <p>The invoice PDF is attached for your convenience.</p>
+      <p style="margin-top:24px">Thank you,<br><strong>${esc(businessName())}</strong></p>
+    </div>
+  </div>`;
+}
+function nativeMailPlugin(){return window.Capacitor?.Plugins?.NativeMail||null}
+function fileAsBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||'').split(',')[1]||'');
+    reader.onerror=()=>reject(reader.error||new Error('Could not read attachment.'));
+    reader.readAsDataURL(file);
+  });
+}
+async function composeNativeInvoiceMail(inv,attachments=[],message={}){
+  const plugin=nativeMailPlugin();if(!plugin)return null;
+  const doc=buildInvoicePDF(inv);if(!doc)return 'native-failed';
+  const nativeAttachments=[{fileName:invoiceFileName(inv),mimeType:'application/pdf',base64:doc.output('datauristring').split(',')[1]}];
+  for(const file of attachments)nativeAttachments.push({fileName:file.name||'attachment.pdf',mimeType:file.type||'application/pdf',base64:await fileAsBase64(file)});
+  try{
+    const response=await plugin.compose({
+      to:inv.recipientEmails||[],cc:inv.ccEmails||[],bcc:inv.bccEmails||[],
+      subject:message.subject||invoiceEmailSubject(inv),body:message.body||invoiceEmailMessageHTML(inv),isHTML:true,
+      attachments:nativeAttachments
+    });
+    return `native-${response?.result||'closed'}`;
+  }catch(error){
+    showToast(error?.message||'Native Mail is unavailable. Opening the Share Sheet instead.');
+    return null;
+  }
+}
+async function deliverInvoiceEmail(inv,attachments=[]){
+  const nativeResult=await composeNativeInvoiceMail(inv,attachments);
+  return nativeResult||shareInvoicePDF(inv,attachments);
+}
+async function sendPaymentReminderEmail(){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  if(invoiceBalance(inv)<=0){showToast('This invoice is already paid in full.');return}
+  normalizeInvoiceContacts(inv);
+  if(!inv.recipientEmails.length){showToast('Add a client email before sending a payment reminder.');return}
+  const result=await composeNativeInvoiceMail(inv,[],{subject:paymentReminderEmailSubject(inv),body:paymentReminderEmailMessageHTML(inv)});
+  if(result){
+    if(result==='native-sent')showToast('Payment reminder email sent.');
+    else if(result==='native-saved')showToast('Payment reminder saved as a draft.');
+    return;
+  }
+  const subject=encodeURIComponent(paymentReminderEmailSubject(inv));
+  const text=encodeURIComponent(`Hi ${inv.clientName},\n\nThis is a friendly reminder that invoice #${inv.number} for ${inv.projectName||'the project'} has a remaining balance of ${money(invoiceBalance(inv))}.${inv.dueDate?`\n\nDue date: ${inv.dueDate}`:''}\n\nThank you,\n${businessName()}`);
+  location.href=`mailto:${encodeMailboxes(inv.recipientEmails,inv.clientName)}?subject=${subject}&body=${text}${inv.ccEmails.length?`&cc=${encodeMailboxes(inv.ccEmails)}`:''}${inv.bccEmails.length?`&bcc=${encodeMailboxes(inv.bccEmails)}`:''}`;
+}
+function invoiceDeliveryMessage(result){
+  if(result==='native-sent')return 'Invoice email sent.';
+  if(result==='native-saved')return 'Invoice email saved as a draft.';
+  if(result?.startsWith('native-'))return 'Mail composer closed.';
+  return result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.';
 }
 function buildMailtoURL(inv){
   normalizeInvoiceContacts(inv);
@@ -1419,12 +1646,14 @@ function invoiceHTML(inv){
 }
 async function sendCurrentInvoice(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
-  const result=await shareInvoicePDF(inv);if(result==='cancelled')return;
+  const result=await deliverInvoiceEmail(inv);if(['cancelled','native-cancelled'].includes(result))return;
   const wasPreviouslySent=!!inv.sentAt,now=new Date().toISOString();
   if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
   if(inv.status==='draft')inv.status='sent';
   persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
-  openInvoiceDetail(inv.id);showToast(result==='shared'?'Invoice PDF prepared for sending.':'PDF downloaded because direct sharing is unavailable in this browser.');
+  const reminderResult=await syncPaymentReminder(inv,{replace:wasPreviouslySent,announce:!!inv.paymentReminderEnabled&&!wasPreviouslySent});
+  if(reminderResult?.permission==='denied'){inv.paymentReminderEnabled=false;persist()}
+  openInvoiceDetail(inv.id);showToast(invoiceDeliveryMessage(result));
 }
 function markViewed(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
@@ -1436,6 +1665,25 @@ function markPaid(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
   const balance=invoiceBalance(inv);if(balance<=0)return;
   addPayment(inv,{amount:balance,paidAt:new Date().toISOString(),method:'Marked paid',reference:'',notes:''});
+}
+async function toggleCurrentPaymentReminder(enabled){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  inv.paymentReminderEnabled=!!enabled;persist();
+  $('detailPaymentReminderDays').disabled=!enabled;
+  const result=await syncPaymentReminder(inv);
+  if(enabled&&result?.permission==='denied'){
+    inv.paymentReminderEnabled=false;persist();$('detailPaymentReminder').checked=false;
+    showToast('Enable notifications in iPhone Settings to use payment reminders.');return;
+  }
+  showToast(enabled?'Payment reminders are on.':'Payment reminders are off.');
+}
+async function changeCurrentPaymentReminderDays(value){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  inv.paymentReminderDays=Math.min(365,Math.max(1,Number(value||7)));persist();
+  if(inv.paymentReminderEnabled){
+    await syncPaymentReminder(inv,{replace:true});
+    showToast(`Reminder changed to every ${inv.paymentReminderDays===7?'week':inv.paymentReminderDays+' days'}.`);
+  }
 }
 
 function togglePaymentEditor(){
@@ -1456,6 +1704,7 @@ function addPayment(inv,payment){
   if(invoiceBalance(inv)<=0.001){inv.status='paid';inv.paidAt=saved.paidAt}
   else {inv.status='partial';inv.paidAt=null}
   persist();
+  void syncPaymentReminder(inv,{replace:invoiceBalance(inv)>0.001});
   if(!saved.excludeFromBrain){
     emitBrainEvent('payment_received',inv,{unique:saved.id,amount:saved.amount,paymentId:saved.id});
     createPaymentTaxRecord(inv,saved);
@@ -1499,6 +1748,7 @@ function deleteCurrentInvoice(){
   const removed=JSON.parse(JSON.stringify(inv));
   const removedEvents=brainEvents.filter(event=>event.invoiceId===currentInvoiceId);
   const removedTax=taxRecords.filter(record=>record.invoiceId===currentInvoiceId);
+  void syncPaymentReminder({...inv,status:'cancelled'});
   invoices.splice(index,1);
   brainEvents=brainEvents.filter(event=>event.invoiceId!==currentInvoiceId);
   removePaidTaxRecord(currentInvoiceId);
@@ -1608,6 +1858,11 @@ function openInvoiceDetail(id){
   $('recordPaymentButton').textContent=invoiceBalance(inv)>0?'Record payment':'Paid in full';
   $('recordPaymentButton').disabled=invoiceBalance(inv)<=0;
   $('resendInvoiceButton').textContent=inv.sentAt?'Resend by email':'Send by email';
+  $('paymentReminderEmailButton').style.display=inv.sentAt&&invoiceBalance(inv)>0?'block':'none';
+  $('detailPaymentReminder').checked=!!inv.paymentReminderEnabled;
+  $('detailPaymentReminder').disabled=invoiceBalance(inv)<=0||inv.status==='cancelled';
+  $('detailPaymentReminderDays').value=String(inv.paymentReminderDays||7);
+  $('detailPaymentReminderDays').disabled=!inv.paymentReminderEnabled||invoiceBalance(inv)<=0||inv.status==='cancelled';
   $('pageTitle').textContent=inv.projectName||'Untitled project';
   $('pageSub').textContent=`${inv.clientName} · Invoice #${inv.number}`;
 }
@@ -2016,6 +2271,8 @@ function editCurrentInvoice(){
   normalizeInvoiceContacts(inv);
   $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
   $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=inv.terms==null?(inv.dueDate?'30':''):String(inv.terms);$('invoiceNotes').value=inv.notes||'';
+  if($('paymentReminderEnabled'))$('paymentReminderEnabled').checked=!!inv.paymentReminderEnabled;
+  if($('paymentReminderDays'))$('paymentReminderDays').value=String(inv.paymentReminderDays||7);
   offWorkDates=new Set(inv.offDates||[]);
   $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));
   if(inv.mileage?.billClient){
@@ -2282,6 +2539,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   editor.addEventListener('input',scheduleWorkspaceSave);
   editor.addEventListener('change',scheduleWorkspaceSave);
   restoreMainTab();
+  setTimeout(syncAllPaymentReminders,600);
 });
 window.addEventListener('beforeunload',saveInvoiceWorkspace);
 </script>

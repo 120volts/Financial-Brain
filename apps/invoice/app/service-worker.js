@@ -1,4 +1,4 @@
-const CACHE_NAME = 'financial-brain-invoice-v2.5.1';
+const CACHE_NAME = 'financial-brain-invoice-v2.5.8';
 const APP_SHELL = [
   './',
   './index.html',
