@@ -20,7 +20,6 @@ for (const feature of [
   'function buildMailtoURL(',
   'function businessAddress(',
   'function useBusinessAddress(',
-  'function openDrivingRoute(',
   'function dateRangeISO(',
   'function renderWorkSchedule(',
   'function toggleWorkDate(',
@@ -45,10 +44,15 @@ for (const deliveryFeature of [
 
 for (const locationFeature of [
   'invoiceApp.businessAddress',
+  'Starting location',
+  'One-way distance'
+]) assert.ok(html.includes(locationFeature), `Missing project location/mileage behavior: ${locationFeature}`);
+
+for (const removedLocationFeature of [
   'projectLocation',
   'maps.apple.com',
-  'Automatic distance entry will require a connected routing provider'
-]) assert.ok(html.includes(locationFeature), `Missing project location/mileage behavior: ${locationFeature}`);
+  'Open driving route'
+]) assert.ok(!html.includes(removedLocationFeature), `Removed project-address behavior still present: ${removedLocationFeature}`);
 
 for (const scheduleFeature of [
   'workDates',

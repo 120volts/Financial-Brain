@@ -11,7 +11,6 @@ Invoice
   ccEmails[]
   bccEmails[]
   projectName
-  projectLocation?
   issueDate
   dueDate
   serviceStartDate?
@@ -72,7 +71,6 @@ updatedAt
 
 ```text
 origin?
-destination?
 distance
 roundTrip
 rate
@@ -104,9 +102,10 @@ Legacy `clientEmail` values are normalized into `recipientEmails[]`. `clientEmai
 the primary recipient for compatibility with existing clients and invoice records. CC and
 BCC recipients are invoice-specific and are not printed as BCC on client documents.
 
-`projectLocation` accepts either a postal address or recognizable place name. The saved
-business starting address uses the compatibility-safe `invoiceApp.businessAddress`
-localStorage key. Mileage snapshots retain the actual origin and destination used.
+The saved business starting address uses the compatibility-safe
+`invoiceApp.businessAddress` localStorage key. Mileage snapshots retain the actual origin,
+entered distance, trip count, and business purpose. Legacy project-location fields may
+remain on older stored invoices but are no longer collected or displayed.
 
 Work schedules are exception based: every calendar date in the service range is a workday
 unless its ISO date appears in `offDates[]`. `workDates[]` is recalculated and stored for

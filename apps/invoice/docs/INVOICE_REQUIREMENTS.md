@@ -8,7 +8,6 @@ An invoice must support at minimum:
 - Human-readable invoice number
 - Client reference, multiple recipient emails, and optional CC/BCC details
 - Project name shown first in the editor and as the prominent title on every invoice format
-- Project address or place name appears inside Mileage after tracking is enabled
 - Issue date and due date
 - Optional service/work start and end dates
 - Automatic inclusive work-day calculation with tap-to-toggle irregular days off
@@ -17,10 +16,7 @@ An invoice must support at minimum:
 Mileage location rules:
 
 - The user can save one regular business/home starting address.
-- A project location may be a street address, venue, studio, jobsite, or place name.
-- Mileage uses the saved starting address and its project address/place as the route.
-- Opening a driving route is user initiated; addresses are not silently sent to a mapping provider.
-- Automatic road-distance entry requires an explicitly selected routing provider.
+- The user enters one-way distance, trip count, and business purpose without providing a project address.
 
 Recipient rules:
 

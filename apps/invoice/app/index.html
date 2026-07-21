@@ -329,17 +329,10 @@ textarea{min-height:76px;resize:vertical}
     <label class="toggle-label"><input id="hasMileage" type="checkbox" onchange="toggleMileage()"> Track mileage (optional)</label>
     <div id="mileageBox" class="card hidden" style="box-shadow:none;margin:8px 0">
       <label>Starting location</label>
-      <input id="mileageFrom" list="locationNames" placeholder="Home or another starting point">
+      <input id="mileageFrom" placeholder="Home or another starting point">
       <div class="top-actions" style="margin-top:8px">
         <button class="secondary" type="button" onclick="useBusinessAddress()">Use my address</button>
         <button class="secondary" type="button" onclick="editBusinessAddress()">Set my address</button>
-      </div>
-      <label>Project address or place</label>
-      <input id="projectLocation" list="locationNames" placeholder="Street address, venue, studio, jobsite, or place name">
-      <datalist id="locationNames"></datalist>
-      <div class="notice" style="margin-top:8px">Examples: “1 Apple Park Way, Cupertino” or “Broward Center for the Performing Arts.”</div>
-      <div class="top-actions" style="margin-top:8px">
-        <button class="secondary" type="button" onclick="openDrivingRoute()">Open driving route</button>
       </div>
       <div class="row">
         <div><label>One-way distance</label><input id="mileageOneWay" type="number" min="0" step="0.1" placeholder="Miles" oninput="recalcMileage()"></div>
@@ -352,7 +345,6 @@ textarea{min-height:76px;resize:vertical}
         <div><label>Purpose</label><input id="mileagePurpose" placeholder="Travel to client work"></div>
       </div>
       <div class="notice" style="margin-top:10px">The tax record is the route, date, distance, and business purpose. Your client billing rate is separate from any tax deduction calculation.</div>
-      <div class="notice" style="margin-top:8px">Apple Maps can show the driving route and one-way distance. Enter that mileage above. Automatic distance entry will require a connected routing provider.</div>
     </div>
 
     <button class="secondary full" type="button" onclick="toggleJobCosts()" style="margin-top:12px">+ Add job expenses for my records</button>
@@ -697,13 +689,13 @@ function showPage(name){
 
 function openNewInvoice(){
   currentInvoiceId=null; editingInvoiceId=null;
-  $('clientName').value=''; $('clientEmail').value='';$('clientCc').value='';$('clientBcc').value=''; $('projectName').value='';$('projectLocation').value=''; $('invoiceDate').value=today();
+  $('clientName').value=''; $('clientEmail').value='';$('clientCc').value='';$('clientBcc').value=''; $('projectName').value=''; $('invoiceDate').value=today();
   $('serviceStartDate').value='';$('serviceEndDate').value='';
   offWorkDates=new Set();renderWorkSchedule();
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
-  $('mileageFrom').value=businessAddress()||'Home';$('projectLocation').value='';$('mileageOneWay').value='';$('mileageTrips').value='2';
+  $('mileageFrom').value=businessAddress()||'Home';$('mileageOneWay').value='';$('mileageTrips').value='2';
   $('billMileage').checked=false;$('mileageBillRate').value='0';$('mileagePurpose').value='Travel to client work';$('mileageTotal').textContent='0 mi';
   $('jobCostsBox').classList.add('hidden');
   ['costParking','costTransit','costLodging','costMeals','costSupplies','costRental','costNote'].forEach(id=>$(id).value='');
@@ -711,7 +703,6 @@ function openNewInvoice(){
   addItemRow();
   refreshClientLists();
   refreshItemSuggestions();
-  refreshLocationSuggestions();
   recalcInvoice();
   showPage('new');
 }
@@ -770,10 +761,6 @@ function refreshClientLists(){
     if(match && !$('clientEmail').value) $('clientEmail').value=match.email||'';
   };
 }
-function refreshLocationSuggestions(){
-  const values=[businessAddress(),...invoices.map(inv=>inv.projectLocation),...invoices.flatMap(inv=>inv.mileage?.enabled?[inv.mileage.from,inv.mileage.to]:[])].filter(Boolean);
-  $('locationNames').innerHTML=[...new Set(values)].map(value=>`<option value="${esc(value)}"></option>`).join('');
-}
 function refreshItemSuggestions(){
   // Suggestions intentionally disabled. Users choose from their own library.
 }
@@ -815,7 +802,7 @@ function makeInvoiceData(status){
   return {
     id:uid(),number,clientId:client.id,clientName:v.name,clientEmail:v.email,
     recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
-    projectName:$('projectName').value.trim()||'Untitled project',projectLocation:$('projectLocation').value.trim(),
+    projectName:$('projectName').value.trim()||'Untitled project',
     date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
     total:v.total,status,createdAt:new Date().toISOString(),
     mileage:readMileageRecord(),
@@ -978,7 +965,7 @@ function previewInvoice(){
   const terms=Number($('paymentTerms').value||0);
   const due=new Date(date+'T12:00:00');due.setDate(due.getDate()+terms);
   $('previewCard').innerHTML=invoiceHTML({
-    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',projectLocation:$('projectLocation').value.trim(),date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,
+    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,
     lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
   });
   showPage('preview');
@@ -1630,7 +1617,7 @@ function editCurrentInvoice(){
   if(!inv.projectName)inv.projectName='Untitled project';
   editingInvoiceId=inv.id;
   normalizeInvoiceContacts(inv);
-  $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';$('projectLocation').value=inv.projectLocation||'';
+  $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
   $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=String(inv.terms||30);$('invoiceNotes').value=inv.notes||'';
   offWorkDates=new Set(inv.offDates||[]);renderWorkSchedule();
   loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
@@ -1804,14 +1791,8 @@ function editBusinessAddress(){
 }
 function saveBusinessAddress(){
   const address=$('modalBusinessAddress').value.trim();
-  localStorage.setItem('invoiceApp.businessAddress',address);closeModal();refreshLocationSuggestions();
+  localStorage.setItem('invoiceApp.businessAddress',address);closeModal();
   if(address){$('mileageFrom').value=address;showToast('Starting address saved.')}else showToast('Starting address cleared.');
-}
-function openDrivingRoute(){
-  const from=$('mileageFrom').value.trim(),to=$('projectLocation').value.trim();
-  if(!from||!to){alert('Add both a starting location and work location first.');return}
-  const url=`https://maps.apple.com/?saddr=${encodeURIComponent(from)}&daddr=${encodeURIComponent(to)}&dirflg=d`;
-  window.open(url,'_blank','noopener');
 }
 function recalcMileage(){
   const oneWay=Number($('mileageOneWay').value||0);
@@ -1847,14 +1828,14 @@ function readMileageRecord(){
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
   return {
-    enabled:true,from:$('mileageFrom').value.trim(),to:$('projectLocation').value.trim(),
+    enabled:true,from:$('mileageFrom').value.trim(),
     oneWayMiles:oneWay,trips,totalMiles:oneWay*trips,purpose:$('mileagePurpose').value.trim(),
     billClient:$('billMileage').checked,billingRate:Number($('mileageBillRate').value||0)
   };
 }
 function loadMileageRecord(m){
   const enabled=!!m?.enabled;$('hasMileage').checked=enabled;$('mileageBox').classList.toggle('hidden',!enabled);
-  $('mileageFrom').value=m?.from||businessAddress()||'Home';$('projectLocation').value=m?.to||$('projectLocation').value.trim()||'';
+  $('mileageFrom').value=m?.from||businessAddress()||'Home';
   $('mileageOneWay').value=m?.oneWayMiles||'';$('mileageTrips').value=m?.trips||2;
   $('mileagePurpose').value=m?.purpose||'Travel to client work';
   $('billMileage').checked=!!m?.billClient;$('mileageBillRate').value=m?.billingRate||0;recalcMileage();
