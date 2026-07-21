@@ -503,6 +503,20 @@ textarea{min-height:76px;resize:vertical}
     <button class="secondary full" onclick="exportBrainEvents()">Export event log</button>
   </div>
 
+  <div class="section-title">Backup &amp; iCloud Drive</div>
+  <div class="card">
+    <div class="title">Move Financial Brain data between devices</div>
+    <div class="meta" style="margin-top:6px">
+      Export one backup containing invoices, clients, projects, services, settings, payment history, and saved W-9 profile details. On iPhone, choose Save to Files and select iCloud Drive. Importing merges saved records with this device instead of deleting unique records.
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary full" onclick="exportFinancialBrainBackup()">Export backup</button>
+      <button class="secondary full" onclick="$('financialBrainBackupInput').click()">Import backup</button>
+    </div>
+    <input id="financialBrainBackupInput" type="file" accept=".json,application/json" class="hidden" onchange="importFinancialBrainBackup(event)">
+    <div id="backupStatus" class="meta" style="margin-top:10px">No backup transferred during this session.</div>
+  </div>
+
   <div class="section-title">Recent events</div>
   <div id="brainEventList"></div>
 </section>
@@ -572,7 +586,80 @@ let workspaceReady = false;
 let workspaceTimer = null;
 const WORKSPACE_KEY='invoiceApp.invoiceWorkspace';
 const W9_PROFILE_KEY='invoiceApp.w9Profile';
+const BACKUP_FORMAT='financial-brain-backup';
+const BACKUP_VERSION=1;
+const BACKUP_ARRAY_KEYS=new Set([
+  'invoiceApp.invoices','invoiceApp.clients','invoiceApp.items','invoiceApp.projects',
+  'invoiceApp.brainEvents','invoiceApp.taxRecords'
+]);
 let preparedW9File=null;
+
+function financialBrainStorageEntries(){
+  const entries={};
+  for(let index=0;index<localStorage.length;index++){
+    const key=localStorage.key(index);
+    if(key?.startsWith('invoiceApp.')&&key!=='invoiceApp.preImportBackup')entries[key]=localStorage.getItem(key);
+  }
+  return entries;
+}
+function backupFileName(){return `Financial-Brain-Backup-${today()}.json`}
+async function exportFinancialBrainBackup(){
+  saveInvoiceWorkspace();persist();
+  const payload={format:BACKUP_FORMAT,version:BACKUP_VERSION,exportedAt:new Date().toISOString(),data:financialBrainStorageEntries()};
+  const file=new File([JSON.stringify(payload,null,2)],backupFileName(),{type:'application/json'});
+  let shared=false;
+  if(navigator.share&&navigator.canShare?.({files:[file]})){
+    try{await navigator.share({files:[file],title:'Financial Brain backup',text:'Save this backup in iCloud Drive or transfer it to another device.'});shared=true}catch(error){if(error?.name==='AbortError')return}
+  }
+  if(!shared){
+    const url=URL.createObjectURL(file),link=document.createElement('a');link.href=url;link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  const status=$('backupStatus');if(status)status.textContent=`Backup exported ${new Date().toLocaleString()}.`;
+  showToast(shared?'Choose Save to Files to place the backup in iCloud Drive.':'Financial Brain backup downloaded.');
+}
+function recordTimestamp(record){
+  const value=record?.updatedAt||record?.savedAt||record?.createdAt||record?.paidAt||'';
+  const timestamp=Date.parse(value);return Number.isFinite(timestamp)?timestamp:0;
+}
+function mergeBackupRecords(current,incoming){
+  const merged=new Map();
+  [...current,...incoming].forEach((record,index)=>{
+    if(!record||typeof record!=='object')return;
+    const identity=String(record.id||record.number||record.name||`record-${index}`);
+    const existing=merged.get(identity);
+    if(!existing||recordTimestamp(record)>=recordTimestamp(existing))merged.set(identity,record);
+  });
+  return [...merged.values()];
+}
+async function importFinancialBrainBackup(event){
+  const input=event.target,file=input.files?.[0];input.value='';if(!file)return;
+  try{
+    const payload=JSON.parse(await file.text());
+    if(payload?.format!==BACKUP_FORMAT||!payload.data||typeof payload.data!=='object')throw new Error('This is not a Financial Brain backup file.');
+    const entries=Object.entries(payload.data).filter(([key,value])=>key.startsWith('invoiceApp.')&&typeof value==='string');
+    if(!entries.length)throw new Error('The backup contains no Financial Brain records.');
+    const prepared=entries.map(([key,value])=>{
+      if(!BACKUP_ARRAY_KEYS.has(key))return [key,value,null];
+      const incoming=JSON.parse(value||'[]');
+      if(!Array.isArray(incoming))throw new Error(`Invalid records for ${key}.`);
+      return [key,value,incoming];
+    });
+    if(!confirm(`Import and merge ${file.name}?\n\nExisting records unique to this device will be kept.`))return;
+    localStorage.setItem('invoiceApp.preImportBackup',JSON.stringify({createdAt:new Date().toISOString(),data:financialBrainStorageEntries()}));
+    for(const [key,value,incomingRecords] of prepared){
+      if(BACKUP_ARRAY_KEYS.has(key)){
+        const current=JSON.parse(localStorage.getItem(key)||'[]');
+        if(!Array.isArray(current))throw new Error(`Invalid existing records for ${key}.`);
+        localStorage.setItem(key,JSON.stringify(mergeBackupRecords(current,incomingRecords)));
+      }else if(key===WORKSPACE_KEY){
+        const current=JSON.parse(localStorage.getItem(key)||'null'),incoming=JSON.parse(value||'null');
+        if(!current||recordTimestamp(incoming)>=recordTimestamp(current))localStorage.setItem(key,value);
+      }else localStorage.setItem(key,value);
+    }
+    alert('Financial Brain backup imported successfully. The app will reload with the merged information.');
+    location.reload();
+  }catch(error){alert(error?.message||'The backup could not be imported.');}
+}
 
 function dateRangeISO(start,end){
   if(!start||!end||end<start)return [];
