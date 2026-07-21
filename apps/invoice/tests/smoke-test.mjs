@@ -20,7 +20,6 @@ for (const feature of [
   'function buildMailtoURL(',
   'function businessAddress(',
   'function useBusinessAddress(',
-  'function useProjectLocation(',
   'function openDrivingRoute(',
   'function dateRangeISO(',
   'function renderWorkSchedule(',

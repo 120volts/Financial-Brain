@@ -268,10 +268,6 @@ textarea{min-height:76px;resize:vertical}
     <input id="projectName" list="projectNames" placeholder="Example: Netflix Documentary">
     <datalist id="projectNames"></datalist>
     <div class="notice" style="margin-top:8px">This appears as the large title at the top of the invoice, printable version, and PDF.</div>
-    <label>Project address or place (optional)</label>
-    <input id="projectLocation" list="locationNames" placeholder="Street address, venue, studio, or place name" oninput="syncProjectLocationToMileage()">
-    <div class="notice" style="margin-top:8px">Examples: “1 Apple Park Way, Cupertino” or “Broward Center for the Performing Arts.” This location can fill Mileage automatically.</div>
-
     <label>Client</label>
     <input id="clientName" list="clientNames" placeholder="Client or company">
     <div id="selectedClientHint" class="meta" style="margin-top:5px"></div>
@@ -338,11 +334,11 @@ textarea{min-height:76px;resize:vertical}
         <button class="secondary" type="button" onclick="useBusinessAddress()">Use my address</button>
         <button class="secondary" type="button" onclick="editBusinessAddress()">Set my address</button>
       </div>
-      <label>Work location</label>
-      <input id="mileageTo" list="locationNames" placeholder="Set, client, jobsite, hospital, etc.">
+      <label>Project address or place</label>
+      <input id="projectLocation" list="locationNames" placeholder="Street address, venue, studio, jobsite, or place name">
       <datalist id="locationNames"></datalist>
+      <div class="notice" style="margin-top:8px">Examples: “1 Apple Park Way, Cupertino” or “Broward Center for the Performing Arts.”</div>
       <div class="top-actions" style="margin-top:8px">
-        <button class="secondary" type="button" onclick="useProjectLocation()">Use project location</button>
         <button class="secondary" type="button" onclick="openDrivingRoute()">Open driving route</button>
       </div>
       <div class="row">
@@ -707,7 +703,7 @@ function openNewInvoice(){
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
-  $('mileageFrom').value=businessAddress()||'Home';$('mileageTo').value='';$('mileageOneWay').value='';$('mileageTrips').value='2';
+  $('mileageFrom').value=businessAddress()||'Home';$('projectLocation').value='';$('mileageOneWay').value='';$('mileageTrips').value='2';
   $('billMileage').checked=false;$('mileageBillRate').value='0';$('mileagePurpose').value='Travel to client work';$('mileageTotal').textContent='0 mi';
   $('jobCostsBox').classList.add('hidden');
   ['costParking','costTransit','costLodging','costMeals','costSupplies','costRental','costNote'].forEach(id=>$(id).value='');
@@ -1791,22 +1787,13 @@ function toggleMileage(){
   $('mileageBox').classList.toggle('hidden',!$('hasMileage').checked);
   if($('hasMileage').checked){
     if(!$('mileageFrom').value||$('mileageFrom').value==='Home')useBusinessAddress(false);
-    if(!$('mileageTo').value)useProjectLocation(false);
   }
   recalcMileage();
-}
-function syncProjectLocationToMileage(){
-  if($('hasMileage').checked&&!$('mileageTo').value)$('mileageTo').value=$('projectLocation').value.trim();
 }
 function useBusinessAddress(showMessage=true){
   const address=businessAddress();
   if(!address){if(showMessage)editBusinessAddress();return}
   $('mileageFrom').value=address;if(showMessage)showToast('Starting address added to Mileage.');
-}
-function useProjectLocation(showMessage=true){
-  const location=$('projectLocation').value.trim();
-  if(!location){if(showMessage)alert('Add a project address or place name near the top of the invoice first.');return}
-  $('mileageTo').value=location;if(showMessage)showToast('Project location added to Mileage.');
 }
 function editBusinessAddress(){
   openModal('My starting address',`
@@ -1821,7 +1808,7 @@ function saveBusinessAddress(){
   if(address){$('mileageFrom').value=address;showToast('Starting address saved.')}else showToast('Starting address cleared.');
 }
 function openDrivingRoute(){
-  const from=$('mileageFrom').value.trim(),to=$('mileageTo').value.trim();
+  const from=$('mileageFrom').value.trim(),to=$('projectLocation').value.trim();
   if(!from||!to){alert('Add both a starting location and work location first.');return}
   const url=`https://maps.apple.com/?saddr=${encodeURIComponent(from)}&daddr=${encodeURIComponent(to)}&dirflg=d`;
   window.open(url,'_blank','noopener');
@@ -1860,14 +1847,14 @@ function readMileageRecord(){
   const oneWay=Number($('mileageOneWay').value||0);
   const trips=Math.max(1,Number($('mileageTrips').value||1));
   return {
-    enabled:true,from:$('mileageFrom').value.trim(),to:$('mileageTo').value.trim(),
+    enabled:true,from:$('mileageFrom').value.trim(),to:$('projectLocation').value.trim(),
     oneWayMiles:oneWay,trips,totalMiles:oneWay*trips,purpose:$('mileagePurpose').value.trim(),
     billClient:$('billMileage').checked,billingRate:Number($('mileageBillRate').value||0)
   };
 }
 function loadMileageRecord(m){
   const enabled=!!m?.enabled;$('hasMileage').checked=enabled;$('mileageBox').classList.toggle('hidden',!enabled);
-  $('mileageFrom').value=m?.from||businessAddress()||'Home';$('mileageTo').value=m?.to||$('projectLocation').value.trim()||'';
+  $('mileageFrom').value=m?.from||businessAddress()||'Home';$('projectLocation').value=m?.to||$('projectLocation').value.trim()||'';
   $('mileageOneWay').value=m?.oneWayMiles||'';$('mileageTrips').value=m?.trips||2;
   $('mileagePurpose').value=m?.purpose||'Travel to client work';
   $('billMileage').checked=!!m?.billClient;$('mileageBillRate').value=m?.billingRate||0;recalcMileage();
