@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node scripts/serve.mjs",
     "test": "node tests/smoke-test.mjs",
-    "native:sync": "npx cap sync ios",
+    "native:sync": "npx cap sync ios && node scripts/configure-native-mail.mjs",
     "native:open": "npx cap open ios"
   },
   "engines": {
