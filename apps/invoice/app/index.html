@@ -296,8 +296,9 @@ textarea{min-height:76px;resize:vertical}
 
     <div class="row">
       <div><label>Invoice date</label><input id="invoiceDate" type="date"></div>
-      <div><label>Payment terms</label>
+      <div><label>Payment terms (optional)</label>
         <select id="paymentTerms">
+          <option value="">No due date</option>
           <option value="0">Due on receipt</option>
           <option value="7">Net 7</option>
           <option value="15">Net 15</option>
@@ -518,6 +519,16 @@ const money = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD
 const esc = s => String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const today = () => new Date().toISOString().slice(0,10);
 const uid = () => crypto?.randomUUID?.() || String(Date.now())+Math.random();
+
+function addDays(date,days){
+  const result=new Date(date+'T12:00:00');result.setDate(result.getDate()+Number(days||0));
+  return result.toISOString().slice(0,10);
+}
+function invoiceDueSchedule(date,value){
+  if(value==='')return {terms:null,dueDate:''};
+  const terms=Number(value);
+  return {terms,dueDate:addDays(date,terms)};
+}
 
 let invoices = JSON.parse(localStorage.getItem('invoiceApp.invoices')||'[]');
 let clients = JSON.parse(localStorage.getItem('invoiceApp.clients')||'[]');
@@ -797,13 +808,12 @@ function makeInvoiceData(status){
   const client=upsertClient(v.name,v.email);
   const number=String((Math.max(0,...invoices.map(i=>Number(i.number)||0))+1)).padStart(4,'0');
   const date=$('invoiceDate').value||today();
-  const terms=Number($('paymentTerms').value||0);
-  const due=new Date(date+'T12:00:00'); due.setDate(due.getDate()+terms);
+  const schedule=invoiceDueSchedule(date,$('paymentTerms').value);
   return {
     id:uid(),number,clientId:client.id,clientName:v.name,clientEmail:v.email,
     recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
     projectName:$('projectName').value.trim()||'Untitled project',
-    date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
+    date,dueDate:schedule.dueDate,serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms:schedule.terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
     total:v.total,status,createdAt:new Date().toISOString(),
     mileage:readMileageRecord(),
     jobCosts:readJobCosts(),
@@ -962,10 +972,9 @@ function saveInvoice(status){
 function previewInvoice(){
   const v=validateInvoice(false); if(!v)return;
   const date=$('invoiceDate').value||today();
-  const terms=Number($('paymentTerms').value||0);
-  const due=new Date(date+'T12:00:00');due.setDate(due.getDate()+terms);
+  const schedule=invoiceDueSchedule(date,$('paymentTerms').value);
   $('previewCard').innerHTML=invoiceHTML({
-    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:due.toISOString().slice(0,10),serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,
+    number:'PREVIEW',clientName:v.name,clientEmail:v.email,recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,
     lines:v.lines,notes:$('invoiceNotes').value.trim(),total:v.total,status:'draft'
   });
   showPage('preview');
@@ -984,9 +993,7 @@ function buildMailtoURL(inv){
 
 Please find invoice #${inv.number} for ${inv.projectName||'the project'} in the amount of ${money(inv.total)}.
 
-${workDates?`${workDates}\n\n`:''}Due: ${inv.dueDate}
-
-This prototype does not yet host invoices online, so use the invoice details in the app or attach a PDF after printing the invoice page.
+${workDates?`${workDates}\n\n`:''}${inv.dueDate?`Due: ${inv.dueDate}\n\n`:''}This prototype does not yet host invoices online, so use the invoice details in the app or attach a PDF after printing the invoice page.
 
 Thank you,
 ${businessName()}`);
@@ -1035,7 +1042,7 @@ function invoiceHTML(inv){
       <div>
         <div class="invoice-doc-label">INVOICE #${esc(inv.number)}</div>
         <h2 class="invoice-project clickable" onclick="editProjectName('${inv.id}')">${esc(inv.projectName||'Untitled project')} ✎</h2>
-        <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)} · Due ${esc(inv.dueDate)}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div>
+        <div class="invoice-date clickable" onclick="editInvoiceDates('${inv.id}')">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div>
       </div>
       <div class="invoice-mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div>
     </div>
@@ -1124,8 +1131,12 @@ function duplicateCurrentInvoice(){
   copy.createdAt=new Date().toISOString();
   copy.sentAt=null;copy.viewedAt=null;copy.paidAt=null;copy.paidAmount=0;copy.payments=[];
   copy.date=today();
-  const days=Math.max(0,Math.round((new Date(source.dueDate)-new Date(source.date))/86400000)||30);
-  copy.dueDate=addDays(copy.date,days);
+  if(source.dueDate){
+    const days=Math.max(0,Math.round((new Date(source.dueDate)-new Date(source.date))/86400000));
+    copy.dueDate=addDays(copy.date,days);
+  }else{
+    copy.dueDate='';copy.terms=null;
+  }
   invoices.unshift(copy);
   persist();
   emitBrainEvent('invoice_created',copy,{unique:'created'});
@@ -1156,7 +1167,7 @@ function effectiveStatus(inv){
   const paid=paymentTotal(inv),balance=invoiceBalance(inv);
   if(paid>0&&balance>0)return 'partial';
   if((paid>0&&balance<=0)||inv.status==='paid')return 'paid';
-  const overdue=(new Date(inv.dueDate+'T23:59:59')<new Date());
+  const overdue=inv.dueDate&&(new Date(inv.dueDate+'T23:59:59')<new Date());
   if(overdue)return 'overdue';
   if(inv.viewedAt)return 'viewed';
   if(inv.sentAt)return 'sent';
@@ -1229,7 +1240,7 @@ function renderInvoices(){
       <div style="display:flex;justify-content:space-between;gap:10px">
         <div style="min-width:0;flex:1">
           <div class="title">${esc(inv.projectName||'Untitled project')}</div>
-          <div class="meta">${esc(inv.clientName)} · #${esc(inv.number)} · Due ${esc(inv.dueDate)}</div>
+          <div class="meta">${esc(inv.clientName)} · #${esc(inv.number)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}</div>
           ${statusLabel(inv)}
           ${invoiceItemSummary(inv)}
         </div>
@@ -1318,7 +1329,7 @@ function openClientDetail(id){
   $('clientInvoiceList').innerHTML='';
   invs.forEach(inv=>{
     const e=document.createElement('div');e.className='entry';
-    e.innerHTML=`<button onclick='openInvoiceDetail(${JSON.stringify(inv.id)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">#${esc(inv.number)}</div><div class="meta">Due ${esc(inv.dueDate)}</div>${statusLabel(inv)}</div><div class="money">${money(inv.total)}</div></div></button>`;
+    e.innerHTML=`<button onclick='openInvoiceDetail(${JSON.stringify(inv.id)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="title">#${esc(inv.number)}</div>${inv.dueDate?`<div class="meta">Due ${esc(inv.dueDate)}</div>`:''}${statusLabel(inv)}</div><div class="money">${money(inv.total)}</div></div></button>`;
     $('clientInvoiceList').appendChild(e);
   });
   $('pageTitle').textContent=c.name;$('pageSub').textContent='Client history';
@@ -1586,7 +1597,7 @@ function editInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
   openModal('Edit dates',`
     <label>Invoice date</label><input id="modalInvoiceDate" type="date" value="${inv.date}">
-    <label>Due date</label><input id="modalDueDate" type="date" value="${inv.dueDate}">
+    <label>Due date (optional)</label><input id="modalDueDate" type="date" value="${inv.dueDate||''}">
     <div class="row"><div><label>Work starts</label><input id="modalServiceStartDate" type="date" value="${inv.serviceStartDate||''}"></div>
     <div><label>Work ends</label><input id="modalServiceEndDate" type="date" value="${inv.serviceEndDate||''}"></div></div>
     <button class="primary full" style="margin-top:14px" onclick="saveInvoiceDates('${invoiceId}')">Save dates</button>`);
@@ -1595,7 +1606,8 @@ function saveInvoiceDates(invoiceId){
   const inv=invoices.find(x=>x.id===invoiceId);if(!inv)return;
   const serviceStartDate=$('modalServiceStartDate').value,serviceEndDate=$('modalServiceEndDate').value;
   if(serviceStartDate&&serviceEndDate&&serviceEndDate<serviceStartDate){alert('The work end date cannot be before the work start date.');return}
-  inv.date=$('modalInvoiceDate').value||inv.date;inv.dueDate=$('modalDueDate').value||inv.dueDate;
+  inv.date=$('modalInvoiceDate').value||inv.date;inv.dueDate=$('modalDueDate').value;
+  inv.terms=inv.dueDate?Math.max(0,Math.round((new Date(inv.dueDate)-new Date(inv.date))/86400000)):null;
   inv.serviceStartDate=serviceStartDate;inv.serviceEndDate=serviceEndDate;
   const calendarDates=dateRangeISO(serviceStartDate,serviceEndDate);
   inv.offDates=(inv.offDates||[]).filter(date=>calendarDates.includes(date));
@@ -1618,7 +1630,7 @@ function editCurrentInvoice(){
   editingInvoiceId=inv.id;
   normalizeInvoiceContacts(inv);
   $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
-  $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=String(inv.terms||30);$('invoiceNotes').value=inv.notes||'';
+  $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=inv.terms==null?(inv.dueDate?'30':''):String(inv.terms);$('invoiceNotes').value=inv.notes||'';
   offWorkDates=new Set(inv.offDates||[]);renderWorkSchedule();
   loadMileageRecord(inv.mileage||null);loadJobCosts(inv.jobCosts||null);
   $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));recalcInvoice();refreshClientLists();refreshItemSuggestions();showPage('new');
@@ -1638,7 +1650,7 @@ function buildInvoicePDF(inv){
   doc.setFontSize(24);doc.setFont('helvetica','bold');
   doc.text(pdfSafe(inv.projectName||'Untitled project').slice(0,36),margin,70);
   doc.setFontSize(10);doc.setFont('helvetica','normal');
-  doc.text(`${pdfSafe(inv.date)}  |  Due ${pdfSafe(inv.dueDate)}`,margin,90);
+  doc.text(`${pdfSafe(inv.date)}${inv.dueDate?`  |  Due ${pdfSafe(inv.dueDate)}`:''}`,margin,90);
   if(serviceDateLabel(inv)){doc.setFontSize(9);doc.text(pdfSafe(serviceDateLabel(inv)),margin,106)}
 
   doc.setTextColor(31,41,55);doc.setFont('helvetica','bold');doc.setFontSize(9);
@@ -1746,7 +1758,7 @@ function invoiceDocumentHTML(inv){
   @media(max-width:600px){.page{width:100%;margin:0;border-radius:0}.hero,.body{padding:22px}.head,.row{grid-template-columns:minmax(0,1fr) 42px 80px 92px;font-size:12px}h1{font-size:31px}}
   </style></head><body>
   <div class="page">
-    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)} · Due ${esc(inv.dueDate)}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div></div><div class="mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div></div>
+    <div class="hero"><div><div class="label">INVOICE #${esc(inv.number)}</div><h1>${esc(inv.projectName||'Untitled project')}</h1><div class="date">${esc(inv.date)}${inv.dueDate?` · Due ${esc(inv.dueDate)}`:''}${serviceDateLabel(inv)?`<br>${esc(serviceDateLabel(inv))}`:''}</div></div><div class="mark">${esc((businessName()||'MB').slice(0,2).toUpperCase())}</div></div>
     <div class="body">
       <div class="parties"><div><div class="small">BILL TO</div><div class="name">${esc(inv.clientName)}</div><div class="muted">${invoiceEmailHTML(inv)}</div></div><div class="right"><div class="small">FROM</div><div class="name">${esc(businessName())}</div></div></div>
       <div class="head"><div>Description</div><div>Qty</div><div>Rate</div><div>Amount</div></div>

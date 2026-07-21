@@ -17,6 +17,7 @@ All notable changes to the Financial Brain Invoice module are documented here.
 
 ### Changed
 - Simplified Mileage by removing project-address entry and map routing; users enter distance directly.
+- Payment terms are optional; invoices without terms omit the due date everywhere.
 
 ### Compatibility
 - Existing invoices with legacy `paidAmount` data are migrated in memory to `payments[]` without changing storage keys.

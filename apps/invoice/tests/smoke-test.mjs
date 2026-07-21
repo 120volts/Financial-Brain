@@ -17,6 +17,7 @@ for (const feature of [
   'function parseEmailList(',
   'function normalizeInvoiceContacts(',
   'function serviceDateLabel(',
+  'function invoiceDueSchedule(',
   'function buildMailtoURL(',
   'function businessAddress(',
   'function useBusinessAddress(',
@@ -41,6 +42,13 @@ for (const deliveryFeature of [
   "query.push(`cc=",
   "query.push(`bcc="
 ]) assert.ok(html.includes(deliveryFeature), `Missing invoice delivery/date behavior: ${deliveryFeature}`);
+
+for (const optionalTermsFeature of [
+  'Payment terms (optional)',
+  '<option value="">No due date</option>',
+  "if(value==='')return {terms:null,dueDate:''}",
+  "const overdue=inv.dueDate&&"
+]) assert.ok(html.includes(optionalTermsFeature), `Missing optional payment-terms behavior: ${optionalTermsFeature}`);
 
 for (const locationFeature of [
   'invoiceApp.businessAddress',

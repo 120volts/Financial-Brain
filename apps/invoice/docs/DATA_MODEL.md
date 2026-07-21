@@ -12,7 +12,7 @@ Invoice
   bccEmails[]
   projectName
   issueDate
-  dueDate
+  dueDate?
   serviceStartDate?
   serviceEndDate?
   workDates[]

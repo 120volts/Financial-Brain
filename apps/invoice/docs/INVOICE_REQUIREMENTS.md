@@ -8,7 +8,7 @@ An invoice must support at minimum:
 - Human-readable invoice number
 - Client reference, multiple recipient emails, and optional CC/BCC details
 - Project name shown first in the editor and as the prominent title on every invoice format
-- Issue date and due date
+- Issue date with optional payment terms and due date
 - Optional service/work start and end dates
 - Automatic inclusive work-day calculation with tap-to-toggle irregular days off
 - Optional action to apply the calculated work-day count to the first invoice line quantity
@@ -24,6 +24,7 @@ Recipient rules:
 - At least one “Send to” address is required before sending.
 - Invalid addresses and reversed work date ranges must be rejected.
 - BCC recipients are used for email delivery but never displayed on the invoice or PDF.
+- Selecting “No due date” omits payment terms from the invoice, email, printable view, and PDF.
 - Line items with description, quantity and rate
 - Notes
 - Mileage record
