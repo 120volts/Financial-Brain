@@ -387,6 +387,8 @@ textarea{min-height:76px;resize:vertical}
 <section id="previewPage" class="hidden">
   <div class="card invoice-preview" id="previewCard"></div>
   <div class="card" style="margin-top:10px">
+    <label class="toggle-label"><input id="paymentReminderEnabled" type="checkbox"> Remind me every 10 days until this invoice is paid</label>
+    <div class="notice" style="margin-top:8px">Optional. The reminder appears on this iPhone and stops when the balance reaches zero.</div>
     <label><input id="includeW9" type="checkbox"> Include my W-9 (optional)</label>
     <div id="w9Status" class="notice" style="margin-top:8px">W-9 not prepared.</div>
     <div class="row" style="margin-top:10px"><button class="secondary full" onclick="openW9Editor()">Set up or update W-9</button><button class="secondary full" onclick="downloadPreparedW9()">Download prepared W-9</button></div>
@@ -410,6 +412,10 @@ textarea{min-height:76px;resize:vertical}
     <button class="primary big full" id="recordPaymentButton" onclick="togglePaymentEditor()">Record payment</button>
   </div>
   <button class="primary big full" id="resendInvoiceButton" style="margin-top:10px" onclick="sendCurrentInvoice()">Resend by email</button>
+  <div class="card" style="margin:10px 0;box-shadow:none">
+    <label class="toggle-label"><input id="detailPaymentReminder" type="checkbox" onchange="toggleCurrentPaymentReminder(this.checked)"> Remind me every 10 days until paid</label>
+    <div class="notice" style="margin-top:8px">Optional. You can change this at any time.</div>
+  </div>
   <div id="paymentEditor" class="card hidden" style="margin:10px 0;box-shadow:none">
     <div class="section-title" style="margin-top:0">Record payment</div>
     <div class="row">
@@ -712,13 +718,13 @@ function paymentTotal(inv){
 function invoiceBalance(inv){return Math.max(0,Number(inv.total||0)-paymentTotal(inv))}
 function paymentReminderPlugin(){return window.Capacitor?.Plugins?.PaymentReminder||null}
 function paymentReminderEligible(inv){
-  return !!inv?.sentAt&&invoiceBalance(inv)>0.001&&!['paid','cancelled'].includes(inv.status);
+  return !!inv?.paymentReminderEnabled&&!!inv?.sentAt&&invoiceBalance(inv)>0.001&&!['paid','cancelled'].includes(inv.status);
 }
 async function syncPaymentReminder(inv,{replace=false,announce=false}={}){
   const plugin=paymentReminderPlugin();if(!plugin||!inv?.id)return;
   try{
     if(!paymentReminderEligible(inv)){
-      await plugin.cancel({id:String(inv.id)});return;
+      await plugin.cancel({id:String(inv.id)});return {cancelled:true};
     }
     const result=await plugin.schedule({
       id:String(inv.id),invoiceId:String(inv.id),replace,
@@ -729,8 +735,10 @@ async function syncPaymentReminder(inv,{replace=false,announce=false}={}){
       if(result?.permission==='denied')showToast('Invoice saved. Enable notifications in iPhone Settings for payment reminders.');
       else showToast('Payment reminder set for every 10 days until paid.');
     }
+    return result;
   }catch(error){
     if(announce)showToast('Invoice saved, but the payment reminder could not be scheduled.');
+    return {error:true};
   }
 }
 function syncAllPaymentReminders(){invoices.forEach(inv=>{void syncPaymentReminder(inv)})}
@@ -800,7 +808,7 @@ function persist(){
 function invoiceWorkspaceFromForm(){
   const value=id=>$(id)?.value||'';
   return {
-    version:1,savedAt:new Date().toISOString(),editingInvoiceId,
+    version:1,savedAt:new Date().toISOString(),editingInvoiceId,paymentReminderEnabled:!!$('paymentReminderEnabled')?.checked,
     projectName:value('projectName'),clientName:value('clientName'),clientEmail:value('clientEmail'),clientCc:value('clientCc'),clientBcc:value('clientBcc'),
     invoiceDate:value('invoiceDate'),paymentTerms:value('paymentTerms'),serviceStartDate:value('serviceStartDate'),serviceEndDate:value('serviceEndDate'),offDates:[...offWorkDates],
     lines:[...document.querySelectorAll('#invoiceItems .item-row')].map(row=>({name:row.querySelector('.item-name').value,qty:row.querySelector('.item-qty').value,rate:row.querySelector('.item-rate').value,quantityMode:row.dataset.qtyMode||'manual',mileage:row.dataset.mileage==='true'})),
@@ -832,6 +840,7 @@ function restoreInvoiceWorkspace(){
   editingInvoiceId=workspace.editingInvoiceId||null;currentInvoiceId=editingInvoiceId;
   const set=(id,value)=>{if($(id))$(id).value=value??''};
   ['projectName','clientName','clientEmail','clientCc','clientBcc','invoiceDate','paymentTerms','serviceStartDate','serviceEndDate'].forEach(id=>set(id,workspace[id]));
+  if($('paymentReminderEnabled'))$('paymentReminderEnabled').checked=!!workspace.paymentReminderEnabled;
   set('invoiceNotes',workspace.notes);offWorkDates=new Set(workspace.offDates||[]);
   $('invoiceItems').innerHTML='';(workspace.lines?.length?workspace.lines:[{}]).forEach(line=>{addItemRow(line);const row=document.querySelector('#invoiceItems .item-row:last-child');if(line.mileage&&row)row.dataset.mileage='true'});
   $('hasMileage').checked=!!workspace.hasMileage;$('mileageBox').classList.toggle('hidden',!workspace.hasMileage);
@@ -917,6 +926,7 @@ function openNewInvoice(forceNew=false){
   offWorkDates=new Set();renderWorkSchedule();
   if($('selectedClientHint'))$('selectedClientHint').textContent='';
   $('paymentTerms').value='30'; $('invoiceNotes').value='';
+  if($('paymentReminderEnabled'))$('paymentReminderEnabled').checked=false;
   $('hasMileage').checked=false;$('mileageBox').classList.add('hidden');
   $('mileageOneWay').value='';$('mileageTrips').value='2';
   $('billMileage').checked=false;$('mileageBillRate').value='0';$('mileagePurpose').value='Travel to client work';$('mileageTotal').textContent='0 mi';
@@ -1114,7 +1124,7 @@ function makeInvoiceData(status){
     recipientEmails:v.recipientEmails,ccEmails:v.ccEmails,bccEmails:v.bccEmails,
     projectName:$('projectName').value.trim()||'Untitled project',
     date,dueDate:schedule.dueDate,serviceStartDate:v.serviceStartDate,serviceEndDate:v.serviceEndDate,workDates:v.workDates,offDates:v.offDates,terms:schedule.terms,lines:v.lines,notes:$('invoiceNotes').value.trim(),
-    total:v.total,status,createdAt:new Date().toISOString(),
+    total:v.total,status,createdAt:new Date().toISOString(),paymentReminderEnabled:!!$('paymentReminderEnabled')?.checked,
     mileage:readMileageRecord(),
     jobCosts:readJobCosts(),
     sentAt:status==='sent'?new Date().toISOString():null,viewedAt:null,paidAt:null,paidAmount:0,payments:[]
@@ -1284,7 +1294,7 @@ function workspacePreviewData(){
   return {
     id:existing?.id||'workspace-preview',number:existing?.number||'PREVIEW',clientName:$('clientName').value.trim()||'Client',clientEmail:parseEmailList($('clientEmail').value)[0]||'',recipientEmails:parseEmailList($('clientEmail').value),ccEmails:parseEmailList($('clientCc').value),bccEmails:parseEmailList($('clientBcc').value),
     projectName:$('projectName').value.trim()||'Untitled project',date,dueDate:schedule.dueDate,terms:schedule.terms,serviceStartDate:$('serviceStartDate').value,serviceEndDate:$('serviceEndDate').value,workDates:work.workDates,offDates:work.offDates,
-    lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',mileage:readMileageRecord(),jobCosts:readJobCosts()
+    lines,notes:$('invoiceNotes').value.trim(),total:lines.reduce((sum,line)=>sum+line.qty*line.rate,0),status:'draft',paymentReminderEnabled:!!$('paymentReminderEnabled')?.checked,mileage:readMileageRecord(),jobCosts:readJobCosts()
   };
 }
 function renderWorkspacePreview(){$('previewCard').innerHTML=invoiceHTML(workspacePreviewData())}
@@ -1304,7 +1314,8 @@ async function sendInvoice(){
   const inv=saveInvoice('sent');if(!inv)return;
   const result=await deliverInvoiceEmail(inv,includeW9?[preparedW9File]:[]);
   if(['cancelled','native-cancelled'].includes(result))return;
-  void syncPaymentReminder(inv,{announce:true});
+  const reminderResult=await syncPaymentReminder(inv,{announce:inv.paymentReminderEnabled});
+  if(reminderResult?.permission==='denied'){inv.paymentReminderEnabled=false;persist()}
   openInvoiceDetail(inv.id);
   showToast(invoiceDeliveryMessage(result));
 }
@@ -1598,7 +1609,8 @@ async function sendCurrentInvoice(){
   if(!inv.sentAt)inv.sentAt=now;else {inv.lastSentAt=now;inv.resendCount=Number(inv.resendCount||0)+1}
   if(inv.status==='draft')inv.status='sent';
   persist();emitBrainEvent(wasPreviouslySent?'invoice_resent':'invoice_sent',inv,{unique:wasPreviouslySent?String(inv.resendCount):'sent'});
-  void syncPaymentReminder(inv,{replace:wasPreviouslySent,announce:!wasPreviouslySent});
+  const reminderResult=await syncPaymentReminder(inv,{replace:wasPreviouslySent,announce:!!inv.paymentReminderEnabled&&!wasPreviouslySent});
+  if(reminderResult?.permission==='denied'){inv.paymentReminderEnabled=false;persist()}
   openInvoiceDetail(inv.id);showToast(invoiceDeliveryMessage(result));
 }
 function markViewed(){
@@ -1611,6 +1623,16 @@ function markPaid(){
   const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
   const balance=invoiceBalance(inv);if(balance<=0)return;
   addPayment(inv,{amount:balance,paidAt:new Date().toISOString(),method:'Marked paid',reference:'',notes:''});
+}
+async function toggleCurrentPaymentReminder(enabled){
+  const inv=invoices.find(i=>i.id===currentInvoiceId);if(!inv)return;
+  inv.paymentReminderEnabled=!!enabled;persist();
+  const result=await syncPaymentReminder(inv);
+  if(enabled&&result?.permission==='denied'){
+    inv.paymentReminderEnabled=false;persist();$('detailPaymentReminder').checked=false;
+    showToast('Enable notifications in iPhone Settings to use payment reminders.');return;
+  }
+  showToast(enabled?'Payment reminders are on.':'Payment reminders are off.');
 }
 
 function togglePaymentEditor(){
@@ -1785,6 +1807,8 @@ function openInvoiceDetail(id){
   $('recordPaymentButton').textContent=invoiceBalance(inv)>0?'Record payment':'Paid in full';
   $('recordPaymentButton').disabled=invoiceBalance(inv)<=0;
   $('resendInvoiceButton').textContent=inv.sentAt?'Resend by email':'Send by email';
+  $('detailPaymentReminder').checked=!!inv.paymentReminderEnabled;
+  $('detailPaymentReminder').disabled=invoiceBalance(inv)<=0||inv.status==='cancelled';
   $('pageTitle').textContent=inv.projectName||'Untitled project';
   $('pageSub').textContent=`${inv.clientName} · Invoice #${inv.number}`;
 }
@@ -2193,6 +2217,7 @@ function editCurrentInvoice(){
   normalizeInvoiceContacts(inv);
   $('clientName').value=inv.clientName;$('clientEmail').value=inv.recipientEmails.join(', ');$('clientCc').value=inv.ccEmails.join(', ');$('clientBcc').value=inv.bccEmails.join(', ');$('projectName').value=inv.projectName||'';
   $('invoiceDate').value=inv.date;$('serviceStartDate').value=inv.serviceStartDate||'';$('serviceEndDate').value=inv.serviceEndDate||'';$('paymentTerms').value=inv.terms==null?(inv.dueDate?'30':''):String(inv.terms);$('invoiceNotes').value=inv.notes||'';
+  if($('paymentReminderEnabled'))$('paymentReminderEnabled').checked=!!inv.paymentReminderEnabled;
   offWorkDates=new Set(inv.offDates||[]);
   $('invoiceItems').innerHTML='';inv.lines.forEach(line=>addItemRow(line));
   if(inv.mileage?.billClient){
